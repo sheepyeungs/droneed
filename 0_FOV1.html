@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Simulation of Angle of View (AOV) of Drone Camera</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: left;
+        }
+        h1, h2, h3 {
+            text-align: center;
+            margin: 0;
+        }
+        h2 {
+            font-size: 1em;
+            margin-bottom: 20px;
+        }
+        .container {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 1200px;
+        }
+        #visualization {
+            width: 900px;
+            height: 600px;
+            border: 1px solid #ccc;
+            cursor: move;
+        }
+        table {
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 5px 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #f0f0f0;
+        }
+        .input-section {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .input-section h3 {
+            margin-top: 0;
+        }
+        .input-group {
+            margin-bottom: 10px;
+        }
+        .input-group label {
+            display: inline-block;
+            width: 200px;
+        }
+        .input-group input {
+            width: 100px;
+        }
+        button {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: left; font-size: 20px;">Simple Simulation of Angle of View (AOV) of Drone Camera</h1>
+    <h2 style="text-align: left; font-size: 16px;">(AOV:40-100 deg, Altitude: 10-180m)</h2>
+   	 <div class="container">
+        <div>
+            <canvas id="visualization" width="900" height="600"></canvas>
+        </div>
+        <div>
+            <table>
+                <tr>
+                    <th>Angle of View (AOV/deg)</th>
+                    <th>Altitude (m)</th>
+                    <th>Field of View (FOV/m)</th>
+                    <th>Half AOV (deg)</th>
+                </tr>
+                <tr>
+                    <td id="fov-value">60.0</td>
+                    <td id="altitude-value">50.0</td>
+                    <td id="distance-value">173.21</td>
+                    <td id="odm-value">30.0</td>
+                </tr>
+            </table>
+            <div class="input-section">
+                <h3>Experimental Determination of AOV</h3><p></p>
+                <div class="input-group">
+                    <label for="exp-distance">FOV (m):</label>
+                    <input type="number" id="exp-distance" step="0.1" min="0">
+                </div>
+                <div class="input-group">
+                    <label for="exp-altitude">Altitude (m):</label>
+                    <input type="number" id="exp-altitude" step="0.1" min="10" max="180">
+                </div>
+                <button onclick="calculateExperimentalFOV()">Calculate AOV</button>
+            </div>
+            <div class="input-section">
+                <h3>Estimation of FOV</h3><p></p>
+                <div class="input-group">
+                    <label for="est-fov">AOV (deg):</label>
+                    <input type="number" id="est-fov" step="0.1" min="40" max="100">
+                </div>
+                <div class="input-group">
+                    <label for="est-altitude">Altitude (m):</label>
+                    <input type="number" id="est-altitude" step="0.1" min="10" max="180">
+                </div>
+                <button onclick="estimateHorizonCaptured()">Calculate FOV</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('visualization');
+        const ctx = canvas.getContext('2d');
+
+        let isDragging = false;
+        let droneX = 225;
+        let droneY = 150;
+
+        const scale = 2; // 2 pixels per meter
+        const maxX = 500; // 300 meters on x-axis
+        const maxY = 300; // 300 meters on y-axis
+
+        const droneImage = new Image();
+        droneImage.src = 'dronefov.png';
+        droneImage.onload = drawVisualization;
+
+        function drawVisualization() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            ctx.strokeStyle = '#ccc';
+            ctx.beginPath();
+            for (let j = 0; j <= canvas.width; j += 30) {
+                ctx.moveTo(j, 0);
+                ctx.lineTo(j, canvas.height);
+            }
+            for (let j = 0; j <= canvas.height; j += 30) {
+                ctx.moveTo(0, j);
+                ctx.lineTo(canvas.width, j);
+            }
+            ctx.stroke();
+
+            // Draw axes
+            ctx.strokeStyle = '#000';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.moveTo(0, canvas.height);
+            ctx.lineTo(0, 0);
+            ctx.stroke();
+
+            // Label axes
+            ctx.fillStyle = '#000';
+            ctx.font = '12px Arial';
+            for (let j = 0; j <= canvas.width; j += 90) {
+                ctx.fillText(j / scale, j, canvas.height - 5);
+            }
+            for (let j = 0; j <= canvas.height; j += 60) {
+                ctx.fillText(maxY - j / scale, 5, j + 15);
+            }
+            ctx.fillText('X (m)', canvas.width - 30, canvas.height - 20);
+            ctx.fillText('Y (m)', 20, 15);
+
+            // Calculate triangle points
+            const altitude = maxY - droneY / scale;
+            const distance = droneX / scale;
+            const groundX = 2 * droneX;
+
+            // Draw triangle
+            ctx.strokeStyle = '#f00';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            ctx.lineTo(droneX, droneY);
+            ctx.lineTo(groundX, canvas.height);
+            ctx.closePath();
+            ctx.stroke();
+
+            // Draw central line (M)
+            ctx.strokeStyle = '#00f';
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(droneX, droneY);
+            ctx.lineTo(droneX, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Label vertices with white background
+            function labelWithBackground(text, x, y, color = '#000', bold = false) {
+                const metrics = ctx.measureText(text);
+                const width = metrics.width;
+                const height = 16;
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(x - 2, y - height + 2, width + 4, height);
+                ctx.fillStyle = color;
+                ctx.font = `${bold ? 'bold ' : ''}16px Arial`;
+                ctx.fillText(text, x, y);
+            }
+
+            labelWithBackground('O', 5, canvas.height - 5, '#f00', true);
+            labelWithBackground('D', droneX - 15, droneY - 5, '#f00', true);
+            labelWithBackground('H', groundX - 5, canvas.height - 5, '#f00', true);
+            labelWithBackground('M', droneX + 5, canvas.height - 5);
+
+            // Draw drone image
+            ctx.drawImage(droneImage, droneX - 22.5, droneY - 22.5, 45, 45);
+
+            // Calculate and display FOV
+            const fov = 2 * Math.atan(distance / altitude) * 180 / Math.PI;
+            ctx.fillStyle = '#f00';
+            ctx.font = '12px Arial';
+            labelWithBackground(`AOV: ${fov.toFixed(1)}°`, droneX + 20, droneY + 5);
+
+            // Display altitude value besides the blue perpendicular line
+            ctx.fillStyle = '#00f';
+            ctx.fillText(`h = ${altitude.toFixed(1)}m`, droneX + 5, (droneY + canvas.height) / 2);
+
+            // Update table values
+            document.getElementById('fov-value').textContent = fov.toFixed(1);
+            document.getElementById('altitude-value').textContent = altitude.toFixed(1);
+            document.getElementById('distance-value').textContent = (2 * distance).toFixed(2);
+            document.getElementById('odm-value').textContent = (Math.atan(distance / altitude) * 180 / Math.PI).toFixed(1);
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            if (Math.abs(x - droneX) < 22.5 && Math.abs(y - droneY) < 22.5) {
+                isDragging = true;
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const rect = canvas.getBoundingClientRect();
+                droneX = e.clientX - rect.left;
+                droneY = e.clientY - rect.top;
+                
+                // Constrain drone position
+                droneX = Math.max(0, Math.min(droneX, canvas.width / 2));
+                droneY = Math.max(0, Math.min(droneY, canvas.height - 20 * scale));
+                
+                // Ensure minimum altitude of 10m and maximum of 180m
+                const altitude = maxY - droneY / scale;
+                if (altitude < 10) {
+                    droneY = (maxY - 10) * scale;
+                } else if (altitude > 180) {
+                    droneY = (maxY - 180) * scale;
+                }
+                
+                // Ensure FOV between 40 and 100 degrees
+                const minTan = Math.tan(20 * Math.PI / 180);
+                const maxTan = Math.tan(50 * Math.PI / 180);
+                const currentAltitude = maxY - droneY / scale;
+                const minX = currentAltitude * minTan * scale;
+                const maxX = currentAltitude * maxTan * scale;
+                droneX = Math.max(minX, Math.min(droneX, maxX));
+                
+                drawVisualization();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+        });
+
+        function calculateExperimentalFOV() {
+            const distance = parseFloat(document.getElementById('exp-distance').value) / 2;
+            const altitude = parseFloat(document.getElementById('exp-altitude').value);
+            
+            if (isNaN(distance) || isNaN(altitude) || altitude < 10 || altitude > 180) {
+                alert('Please enter valid values. Altitude should be between 10 and 180 meters.');
+                return;
+            }
+            
+            const fov = 2 * Math.atan(distance / altitude) * 180 / Math.PI;
+            
+            if (fov < 40 || fov > 100) {
+                alert('The calculated FOV is outside the valid range (40-100 degrees). Please adjust your input values.');
+                return;
+            }
+            
+            droneY = (maxY - altitude) * scale;
+            droneX = distance * scale;
+            
+            drawVisualization();
+        }
+
+        function estimateHorizonCaptured() {
+            const fov = parseFloat(document.getElementById('est-fov').value);
+            const altitude = parseFloat(document.getElementById('est-altitude').value);
+            
+            if (isNaN(fov) || isNaN(altitude) || fov < 40 || fov > 100 || altitude < 10 || altitude > 180) {
+                alert('Please enter valid values. FOV should be between 40 and 100 degrees, and altitude between 10 and 180 meters.');
+                return;
+            }
+            
+            const distance = altitude * Math.tan(fov / 2 * Math.PI / 180);
+            
+            droneY = (maxY - altitude) * scale;
+            droneX = distance * scale;
+            
+            drawVisualization();
+        }
+
+        drawVisualization();
+    </script>
+</body>
+</html>

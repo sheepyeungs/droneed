@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Applications</title>
+    <style>
+        .app {
+            display: none;
+        }
+        .active {
+            display: block;
+        }
+        .button-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 5px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+        }
+        .button-green {
+            background-color: green;
+            color: white;
+        }
+        .button-orange {
+            background-color: orange;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">Simple Mathematics & Drone Technology</h1>
+    <h3 style="text-align: center;">By Richard C Y YEUNG, EdUHK</h3>
+    <div class="button-container">
+        <button class="button-green" onclick="showApp('app1')">Angle of View of Drone Camera</button>
+        <button class="button-orange" onclick="showApp('app2')">GPS Trilateration of Drone Location</button>
+    </div>
+
+    <div id="app1" class="app">
+        <iframe src="0_FOV1.html" width="100%" height="600px" frameborder="0"></iframe>
+    </div>
+
+    <div id="app2" class="app">
+        <iframe src="0_GPS2x2.html" width="100%" height="600px" frameborder="0"></iframe>
+    </div>
+
+    <script>
+        function showApp(appId) {
+            document.querySelectorAll('.app').forEach(app => app.classList.remove('active'));
+            document.getElementById(appId).classList.add('active');
+        }
+
+        // Initialize the page
+        showApp('app1');
+    </script>
+</body>
+</html>
