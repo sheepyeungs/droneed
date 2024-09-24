@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concepts of Average Horizontal Speed</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-wrap: wrap;
+        }
+        h1 {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 2;
+        }
+        h2 {
+            width: 100%;
+            text-align: center;
+            font-style: italic;
+            font-weight: normal;
+            margin-top: 5px;
+        }
+        .container {
+            display: flex;
+            width: 100%;
+            justify-content: space-around;
+            flex-wrap: wrap;
+        }
+        .left-side, .right-side {
+            width: 45%;
+            min-width: 300px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        input {
+            width: 60px;
+        }
+        button {
+            margin-right: 10px;
+            margin-bottom: 20px;
+        }
+        .track-container {
+            position: relative;
+            width: 100%;
+            height: 70px;
+            margin-bottom: 10px;
+            overflow-x: auto;
+        }
+        .track {
+            height: 50px;
+            background-color: #f0f0f0;
+            position: absolute;
+            top: 0;
+            background-image: linear-gradient(to right, #ccc 1px, transparent 1px);
+            background-size: 20px 100%;
+        }
+        .track-scale {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+        .ball {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            position: absolute;
+            top: 15px;
+        }
+        #ballA {
+            background-color: red;
+        }
+        #ballB {
+            background-color: blue;
+        }
+        canvas {
+            border: 1px solid #ddd;
+        }
+        .red-text {
+            color: red;
+        }
+        .blue-text {
+            color: blue;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: left; font-size: 20px;">Concepts of Average Horizontal Speed</h1>
+
+    <div class="container">
+        <div class="left-side">
+            <table>
+                <tr>
+                    <th>Object</th>
+                    <th class="red-text">A (Red)</th>
+                    <th class="blue-text">B (Blue)</th>
+                </tr>
+                <tr>
+                    <td>Distance (m)</td>
+                    <td><input type="number" id="distanceA" min="0" step="0.1"></td>
+                    <td><input type="number" id="distanceB" min="0" step="0.1"></td>
+                </tr>
+                <tr>
+                    <td>Time (s)</td>
+                    <td><input type="number" id="timeA" min="0" step="0.1"></td>
+                    <td><input type="number" id="timeB" min="0" step="0.1"></td>
+                </tr>
+                <tr>
+                    <td>Speed (m/s)</td>
+                    <td><input type="number" id="speedA" min="0" step="0.1"></td>
+                    <td><input type="number" id="speedB" min="0" step="0.1"></td>
+                </tr>
+            </table>
+            <button id="startBtn">Start</button>
+            <button id="pauseResumeBtn">Pause</button>
+            <button id="resetBtn">Reset</button>
+            <div class="track-container">
+                <div id="trackA" class="track">
+                    <div id="ballA" class="ball"></div>
+                </div>
+                <div id="scaleA" class="track-scale"></div>
+            </div>
+            <div class="track-container">
+                <div id="trackB" class="track">
+                    <div id="ballB" class="ball"></div>
+                </div>
+                <div id="scaleB" class="track-scale"></div>
+            </div>
+        </div>
+        <div class="right-side">
+            <canvas id="graph" width="400" height="400"></canvas>
+        </div>
+    </div>
+    <script>
+        const distanceA = document.getElementById('distanceA');
+        const timeA = document.getElementById('timeA');
+        const speedA = document.getElementById('speedA');
+        const distanceB = document.getElementById('distanceB');
+        const timeB = document.getElementById('timeB');
+        const speedB = document.getElementById('speedB');
+        const startBtn = document.getElementById('startBtn');
+        const pauseResumeBtn = document.getElementById('pauseResumeBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const ballA = document.getElementById('ballA');
+        const ballB = document.getElementById('ballB');
+        const trackA = document.getElementById('trackA');
+        const trackB = document.getElementById('trackB');
+        const scaleA = document.getElementById('scaleA');
+        const scaleB = document.getElementById('scaleB');
+        const canvas = document.getElementById('graph');
+        const ctx = canvas.getContext('2d');
+
+        let animationId;
+        let isPaused = false;
+        let startTime;
+        let elapsedTime = 0;
+
+        function calculateSpeed(distance, time) {
+            return distance / time;
+        }
+
+        function calculateTime(distance, speed) {
+            return distance / speed;
+        }
+
+        function calculateDistance(speed, time) {
+            return speed * time;
+        }
+
+        function updateValues(object) {
+            const distance = document.getElementById(`distance${object}`);
+            const time = document.getElementById(`time${object}`);
+            const speed = document.getElementById(`speed${object}`);
+
+            if (distance.value && time.value) {
+                speed.value = calculateSpeed(parseFloat(distance.value), parseFloat(time.value)).toFixed(2);
+            } else if (distance.value && speed.value) {
+                time.value = calculateTime(parseFloat(distance.value), parseFloat(speed.value)).toFixed(2);
+            } else if (speed.value && time.value) {
+                distance.value = calculateDistance(parseFloat(speed.value), parseFloat(time.value)).toFixed(2);
+            }
+
+            updateTrackScale(object);
+        }
+
+        function updateTrackScale(object) {
+            const distance = parseFloat(document.getElementById(`distance${object}`).value) || 0;
+            const scale = document.getElementById(`scale${object}`);
+            const track = document.getElementById(`track${object}`);
+            
+            scale.innerHTML = '';
+            track.style.width = `${distance}px`;
+            
+            const scaleCount = Math.min(10, Math.max(5, Math.floor(distance / 50)));
+            const scaleStep = distance / (scaleCount - 1);
+            
+            for (let i = 0; i < scaleCount; i++) {
+                const scaleMarker = document.createElement('span');
+                scaleMarker.textContent = (i * scaleStep).toFixed(0) + 'm';
+                scaleMarker.style.position = 'absolute';
+                scaleMarker.style.left = `${i * scaleStep}px`;
+                scale.appendChild(scaleMarker);
+            }
+        }
+
+        distanceA.addEventListener('input', () => updateValues('A'));
+        timeA.addEventListener('input', () => updateValues('A'));
+        speedA.addEventListener('input', () => updateValues('A'));
+        distanceB.addEventListener('input', () => updateValues('B'));
+        timeB.addEventListener('input', () => updateValues('B'));
+        speedB.addEventListener('input', () => updateValues('B'));
+
+        function drawGraph() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            ctx.beginPath();
+            ctx.strokeStyle = '#ddd';
+            for (let i = 50; i <= 350; i += 30) {
+                ctx.moveTo(i, 50);
+                ctx.lineTo(i, 350);
+                ctx.moveTo(50, i);
+                ctx.lineTo(350, i);
+            }
+            ctx.stroke();
+
+            // Draw axes
+            ctx.beginPath();
+            ctx.strokeStyle = '#000';
+            ctx.moveTo(50, 350);
+            ctx.lineTo(350, 350);
+            ctx.moveTo(50, 350);
+            ctx.lineTo(50, 50);
+            ctx.stroke();
+
+            // Draw labels
+            ctx.font = '12px Arial';
+            ctx.fillStyle = '#000';
+            ctx.fillText('Time (s)', 180, 380);
+            ctx.save();
+            ctx.translate(20, 200);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Distance (m)', 0, 0);
+            ctx.restore();
+
+            // Draw scale
+            const maxTime = Math.max(parseFloat(timeA.value) || 0, parseFloat(timeB.value) || 0);
+            const maxDistance = Math.max(parseFloat(distanceA.value) || 0, parseFloat(distanceB.value) || 0);
+
+            for (let i = 0; i <= 10; i++) {
+                const x = 50 + i * 30;
+                const y = 350 - i * 30;
+                ctx.fillText((maxTime * i / 10).toFixed(1), x, 365);
+                ctx.fillText((maxDistance * i / 10).toFixed(1), 30, y);
+            }
+
+            // Draw lines for objects A and B
+            const drawLine = (distance, time, color) => {
+                const x = 50 + (time / maxTime) * 300;
+                const y = 350 - (distance / maxDistance) * 300;
+                ctx.beginPath();
+                ctx.moveTo(50, 350);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = color;
+                ctx.stroke();
+            };
+
+            drawLine(parseFloat(distanceA.value) || 0, parseFloat(timeA.value) || 0, 'red');
+            drawLine(parseFloat(distanceB.value) || 0, parseFloat(timeB.value) || 0, 'blue');
+        }
+
+        function updateBallPosition(ball, distance, time, elapsed) {
+            const progress = Math.min(elapsed / time, 1);
+            ball.style.left = `${progress * distance}px`;
+        }
+
+        function updateCoordinates(object, distance, time, elapsed) {
+            const progress = Math.min(elapsed / time, 1);
+            const currentDistance = progress * distance;
+            const x = 50 + (elapsed / Math.max(parseFloat(timeA.value), parseFloat(timeB.value))) * 300;
+            const y = 350 - (currentDistance / Math.max(parseFloat(distanceA.value), parseFloat(distanceB.value))) * 300;
+
+            ctx.fillStyle = object === 'A' ? 'red' : 'blue';
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Draw label with offset to avoid overlap
+            const offset = object === 'A' ? -20 : 20;
+            ctx.fillStyle = 'white';
+            ctx.fillRect(x - 30, y + offset - 15, 60, 20);
+            ctx.fillStyle = object === 'A' ? 'red' : 'blue';
+            ctx.fillText(`(${elapsed.toFixed(1)}, ${currentDistance.toFixed(1)})`, x - 25, y + offset);
+        }
+
+        function animate(timestamp) {
+            if (!startTime) startTime = timestamp;
+            if (!isPaused) elapsedTime = timestamp - startTime;
+
+            const timeValueA = parseFloat(timeA.value);
+            const timeValueB = parseFloat(timeB.value);
+            const distanceValueA = parseFloat(distanceA.value);
+            const distanceValueB = parseFloat(distanceB.value);
+
+            updateBallPosition(ballA, distanceValueA, timeValueA, elapsedTime / 1000);
+            updateBallPosition(ballB, distanceValueB, timeValueB, elapsedTime / 1000);
+
+            drawGraph();
+            updateCoordinates('A', distanceValueA, timeValueA, Math.min(elapsedTime / 1000, timeValueA));
+            updateCoordinates('B', distanceValueB, timeValueB, Math.min(elapsedTime / 1000, timeValueB));
+
+            if (elapsedTime / 1000 < Math.max(timeValueA, timeValueB)) {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+
+        startBtn.addEventListener('click', () => {
+            cancelAnimationFrame(animationId);
+            startTime = null;
+            elapsedTime = 0;
+            isPaused = false;
+            pauseResumeBtn.textContent = 'Pause';
+            animationId = requestAnimationFrame(animate);
+        });
+
+        pauseResumeBtn.addEventListener('click', () => {
+            isPaused = !isPaused;
+            pauseResumeBtn.textContent = isPaused ? 'Resume' : 'Pause';
+            if (!isPaused) {
+                startTime = performance.now() - elapsedTime;
+                animationId = requestAnimationFrame(animate);
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            cancelAnimationFrame(animationId);
+            ballA.style.left = '0px';
+            ballB.style.left = '0px';
+            startTime = null;
+            elapsedTime = 0;
+            isPaused = false;
+            pauseResumeBtn.textContent = 'Pause';
+            drawGraph();
+        });
+
+        updateValues('A');
+        updateValues('B');
+        drawGraph();
+    </script>
+</body>
+</html>
