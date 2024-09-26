@@ -35,15 +35,20 @@
             background-color: teal;
             color: white;
         }
+        .button-salmon {
+            background-color: salmon;
+            color: white;
+        }
     </style>
 </head>
 <body>
-    <h1 style="text-align: center;">Simple Mathematics & Drone Technology</h1>
+    <h1 style="text-align: center;">Drone-Integrated Cross-Disciplinary STEM Learning</h1>
     <h3 style="text-align: center;">By Richard C Y YEUNG, EdUHK</h3>
     <div class="button-container">
         <button class="button-green" onclick="showApp('app1')">Angle of View of Drone Camera</button>
         <button class="button-orange" onclick="showApp('app2')">GPS Trilateration of Drone Location</button>
         <button class="button-teal" onclick="showApp('app3')">Average Horizontal Speed</button>
+        <button class="button-salmon" onclick="showApp('app4')">Polygonal Flight Path</button>
     </div>
 
     <div id="app1" class="app">
@@ -58,6 +63,9 @@
         <iframe src="0_Speed.html" width="100%" height="600px" frameborder="0"></iframe>
     </div>
 
+    <div id="app4" class="app">
+        <iframe src="0_Polygon.html" width="100%" height="600px" frameborder="0"></iframe>
+    </div>
 
     <script>
         function showApp(appId) {
