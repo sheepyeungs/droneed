@@ -3,8 +3,16 @@
 <head>
     <title>Polygon Path Simulation</title>
     <style>
-        canvas {
-            border: 1px solid black;
+        body {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            margin: 0;
+            padding: 0;
+        }
+        .left-panel {
+            flex: 1;
+            padding: 20px;
         }
         .controls {
             margin-bottom: 10px;
@@ -12,7 +20,14 @@
         .angle-info {
             margin-bottom: 10px;
             font-weight: bold;
-            font-size: 1.4em;
+            font-size: 1.2em;
+        }
+        .right-panel {
+            flex: 1;
+            padding: 20px;
+        }
+        canvas {
+            border: 1px solid black;
         }
         body {
             font-family: Arial, sans-serif;
@@ -23,34 +38,38 @@
     </style>
 </head>
 <body>
-    <h1 style="text-align: left; font-size: 20px;">Polygonal Flight Path Simulation</h1>
-    <div class="controls">
-        <label for="sides">Number of sides (n = 3 - 25): </label>
-        <input type="number" id="sides" min="3" max="25" value="4" onchange="initSimulation()" /><p></p>
-        <label for="length">Side length (cm): </label>
-        <input type="number" id="length" value="100" onchange="initSimulation()" /><p></p>
-        <button onclick="startDrone()">Start</button>
-        <button onclick="togglePauseResume()" disabled>Pause / Resume</button>
-        <button onclick="resetSimulation()">Reset</button>
-        <button onclick="toggleCentralAngle()">Central Angle On/Off</button>
-        <br><p></p>
-        <label for="speed">Speed: </label>
-        <input type="range" id="speed" min="1" max="10" value="5" oninput="updateSpeed()" /><p></p>
+    <div class="left-panel">
+        <h1 style="text-align: left; font-size: 20px;">Polygonal Flight Path Simulation</h1>
+        <div class="controls">
+            <label for="sides">Number of sides (n = 3 - 25): </label>
+            <input type="number" id="sides" min="3" max="25" value="4" onchange="initSimulation()" /><p></p>
+            <label for="length">Side length (cm): </label>
+            <input type="number" id="length" value="100" onchange="initSimulation()" /><p></p>
+            <button onclick="startDrone()">Start</button>
+            <button onclick="togglePauseResume()" disabled>Pause / Resume</button>
+            <button onclick="resetSimulation()">Reset</button>
+            <button onclick="toggleCentralAngle()">Central Angle</button>
+            <br><p></p>
+            <label for="speed">Speed: </label>
+            <input type="range" id="speed" min="1" max="10" value="5" oninput="updateSpeed()" /><p></p>
+        </div>
+            <br>
+        <div class="angle-info">
+            <span id="polygon-name"></span>
+            <br><br>
+            <span id="interior-angle" style="color: green;"></span><br>
+            <span id="exterior-angle" style="color: red;"></span><br>
+            <span id="central-angle" style="color: blue;"></span>
+        </div>
+        <div class="angle-calc">
+            <p style="color: green; font-size: 12px;"><strong>Interior angle = (180° - 360° / n)</strong>.</p>
+            <p style="color: red; font-size: 12px;"><strong>Exterior angle = (360° / n)</strong>.</p>
+            <p style="color: blue; font-size: 12px;"><strong>Central angle = (360° / n)</strong>.</p>
+        </div>
     </div>
-    <div class="angle-info">
-        <span id="polygon-name"></span>
-        <br>
-        <span id="interior-angle" style="color: green;"></span>
-        <span id="exterior-angle" style="color: red;"></span>
-        <br>
-        <span id="central-angle" style="color: blue;"></span>
+    <div class="right-panel">
+        <canvas id="canvas" width="1000" height="880"></canvas>
     </div>
-    <div class="angle-calc">
-        <p>The interior angle of a polygon with <em>n</em> sides is calculated as <strong>(180° - 360° / n)</strong>.</p>
-        <p>The exterior angle of a polygon with <em>n</em> sides is calculated as <strong>(360° / n)</strong>.</p>
-        <p>The central angle of a polygon with <em>n</em> sides is calculated as <strong>(360° / n)</strong>.</p>
-    </div>
-    <canvas id="canvas" width="1000" height="880"></canvas>
 
     <script>
         let ctx, width, height, n, sideLength, vertices, drone, interval, paused = false, speed, started = false, centralAngleOn = false;
