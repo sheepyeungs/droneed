@@ -71,7 +71,8 @@
 </head>
 <body>
     <h1 style="text-align: left; font-size: 20px;">Simple Simulation of Angle of View (AOV) of Drone Camera</h1>
-    <h2 style="text-align: left; font-size: 16px;">(AOV:40-100 deg, Altitude: 10-180m)</h2>
+    <h2 style="text-align: left; font-size: 16px;">Angle of View (AOV): The extent of the observable scene captured by a camera lens, measured in degrees.
+    <p></p>Field of View (FOV): The area visible through a lens or optical device, typically described in terms of width and height or as a visual angle. </p></h2>
    	 <div class="container">
         <div>
             <canvas id="visualization" width="900" height="600"></canvas>
@@ -94,11 +95,11 @@
             <div class="input-section">
                 <h3>Experimental Determination of AOV</h3><p></p>
                 <div class="input-group">
-                    <label for="exp-distance">FOV (m):</label>
+                    <label for="exp-distance">FOV (7.3-429m):</label>
                     <input type="number" id="exp-distance" step="0.1" min="0">
                 </div>
                 <div class="input-group">
-                    <label for="exp-altitude">Altitude (m):</label>
+                    <label for="exp-altitude">Altitude (10-180m):</label>
                     <input type="number" id="exp-altitude" step="0.1" min="10" max="180">
                 </div>
                 <button onclick="calculateExperimentalFOV()">Calculate AOV</button>
@@ -106,11 +107,11 @@
             <div class="input-section">
                 <h3>Estimation of FOV</h3><p></p>
                 <div class="input-group">
-                    <label for="est-fov">AOV (deg):</label>
+                    <label for="est-fov">AOV (40-100 degrees):</label>
                     <input type="number" id="est-fov" step="0.1" min="40" max="100">
                 </div>
                 <div class="input-group">
-                    <label for="est-altitude">Altitude (m):</label>
+                    <label for="est-altitude">Altitude (10-180m):</label>
                     <input type="number" id="est-altitude" step="0.1" min="10" max="180">
                 </div>
                 <button onclick="estimateHorizonCaptured()">Calculate FOV</button>
