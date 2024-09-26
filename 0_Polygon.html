@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Polygon Path Simulation</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+        .controls {
+            margin-bottom: 10px;
+        }
+        .angle-info {
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 1.4em;
+        }
+        h1 {
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <h1>Polygonal Flight Path Simulation</h1>
+    <div class="controls">
+        <label for="sides">Number of sides (n = 3 - 25): </label>
+        <input type="number" id="sides" min="3" max="25" value="4" onchange="initSimulation()" /><p></p>
+        <label for="length">Side length (cm): </label>
+        <input type="number" id="length" value="100" onchange="initSimulation()" /><p></p>
+        <button onclick="startDrone()">Start</button>
+        <button onclick="togglePauseResume()" disabled>Pause / Resume</button>
+        <button onclick="resetSimulation()">Reset</button>
+        <button onclick="toggleCentralAngle()">Central Angle On/Off</button>
+        <br><p></p>
+        <label for="speed">Speed: </label>
+        <input type="range" id="speed" min="1" max="10" value="5" oninput="updateSpeed()" /><p></p>
+    </div>
+    <div class="angle-info">
+        <span id="polygon-name"></span>
+        <br>
+        <span id="interior-angle" style="color: green;"></span>
+        <span id="exterior-angle" style="color: red;"></span>
+        <br>
+        <span id="central-angle" style="color: blue;"></span>
+    </div>
+    <div class="angle-calc">
+        <p>The interior angle of a polygon with <em>n</em> sides is calculated as <strong>(180° - 360° / n)</strong>.</p>
+        <p>The exterior angle of a polygon with <em>n</em> sides is calculated as <strong>(360° / n)</strong>.</p>
+        <p>The central angle of a polygon with <em>n</em> sides is calculated as <strong>(360° / n)</strong>.</p>
+    </div>
+    <canvas id="canvas" width="1000" height="880"></canvas>
+
+    <script>
+        let ctx, width, height, n, sideLength, vertices, drone, interval, paused = false, speed, started = false, centralAngleOn = false;
+
+        const polygonNames = {
+            3: "Triangle",
+            4: "Quadrilateral",
+            5: "Pentagon",
+            6: "Hexagon",
+            7: "Heptagon",
+            8: "Octagon",
+            9: "Nonagon",
+            10: "Decagon",
+            11: "Hendecagon",
+            12: "Dodecagon",
+            13: "Tridecagon",
+            14: "Tetradecagon",
+            15: "Pentadecagon",
+            16: "Hexadecagon",
+            17: "Heptadecagon",
+            18: "Octadecagon",
+            19: "Enneadecagon",
+            20: "Icosagon",
+            21: "Icosihenagon",
+            22: "Icosidigon",
+            23: "Icositrigon",
+            24: "Icositetragon",
+            25: "Icosipentagon"
+        };
+
+        function initSimulation() {
+            n = parseInt(document.getElementById('sides').value);
+            sideLength = parseInt(document.getElementById('length').value);
+            speed = parseInt(document.getElementById('speed').value);
+
+            // Calculate angles
+            const exteriorAngle = 360 / n;
+            const interiorAngle = 180 - exteriorAngle;
+            const centralAngle = exteriorAngle;
+            const numberOfTriangles = n - 2;
+
+            // Display angles and polygon name
+            document.getElementById('polygon-name').innerText = `Polygon: ${polygonNames[n]} (no. of triangles = ${numberOfTriangles})`;
+            document.getElementById('interior-angle').innerText = `Interior angle: ${interiorAngle.toFixed(2)}°`;
+            document.getElementById('exterior-angle').innerText = `Exterior angle: ${exteriorAngle.toFixed(2)}°`;
+            document.getElementById('central-angle').innerText = `Central angle: ${centralAngle.toFixed(2)}°`;
+
+            // Calculate vertices
+            calculateVertices();
+
+            // Setup canvas
+            const canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            width = canvas.width;
+            height = canvas.height;
+            ctx.clearRect(0, 0, width, height);
+
+            // Draw the polygon and its triangles
+            drawPolygon();
+
+            // Initialize drone
+            drone = {
+                x: vertices[0].x,
+                y: vertices[0].y,
+                angle: Math.atan2(vertices[1].y - vertices[0].y, vertices[1].x - vertices[0].x) * 180 / Math.PI,
+                pathIndex: 0,
+                steps: 0
+            };
+
+            drawDrone();
+        }
+
+        function calculateVertices() {
+            // Calculate radius of the polygon's circumcircle
+            const radius = (sideLength / (2 * Math.sin(Math.PI / n)));
+
+            // Center of the canvas
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            // Calculate the vertices of the polygon
+            vertices = [];
+            for (let i = 0; i < n; i++) {
+                const angle = (Math.PI / 2) - (2 * Math.PI * i / n);
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY - radius * Math.sin(angle);
+                vertices.push({ x, y });
+            }
+        }
+
+        function drawPolygon() {
+            // Draw the grid
+            drawGrid();
+
+            // Draw the polygon in blue
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(vertices[0].x, vertices[0].y);
+            for (let i = 1; i < n; i++) {
+                ctx.lineTo(vertices[i].x, vertices[i].y);
+            }
+            ctx.closePath();
+            ctx.stroke();
+
+            // Draw the triangles inside the polygon
+            ctx.strokeStyle = 'grey';
+            ctx.beginPath();
+            for (let i = 1; i < n; i++) {
+                ctx.moveTo(vertices[0].x, vertices[0].y);
+                ctx.lineTo(vertices[i].x, vertices[i].y);
+            }
+            ctx.stroke();
+
+            // Draw the labels for vertices with blue balls
+            ctx.fillStyle = 'blue';
+            ctx.strokeStyle = 'black';
+            vertices.forEach((vertex, index) => {
+                ctx.beginPath();
+                ctx.arc(vertex.x, vertex.y, 5, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillText(`(${vertex.x.toFixed(2)}, ${vertex.y.toFixed(2)})`, vertex.x + 5, vertex.y - 5);
+            });
+
+            // Draw central angle lines if enabled
+            if (centralAngleOn) {
+                drawCentralAngle();
+            }
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 0.5;
+
+            // Draw vertical grid lines
+            for (let x = 0; x <= width; x += 10) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+
+            // Draw horizontal grid lines
+            for (let y = 0; y <= height; y += 10) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            // Draw axes
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(width / 2, 0);
+            ctx.lineTo(width / 2, height);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(0, height / 2);
+            ctx.lineTo(width, height / 2);
+            ctx.stroke();
+        }
+
+        function drawCentralAngle() {
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            // Draw lines from the center to two neighboring vertices
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(vertices[0].x, vertices[0].y);
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(vertices[1].x, vertices[1].y);
+            ctx.stroke();
+
+            // Label the vertices and the center
+            ctx.fillStyle = 'black';
+            ctx.fillText('O', centerX + 5, centerY - 5);
+            ctx.fillText('A', vertices[0].x + 5, vertices[0].y - 5);
+            ctx.fillText('B', vertices[1].x + 5, vertices[1].y - 5);
+        }
+
+        function moveDrone() {
+            if (paused || !started) return;
+
+            const nextVertex = vertices[(drone.pathIndex + 1) % n];
+            const dx = nextVertex.x - drone.x;
+            const dy = nextVertex.y - drone.y;
+
+            if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
+                // Drone reached the next vertex
+                drone.pathIndex = (drone.pathIndex + 1) % n;
+                drone.steps++;
+                if (drone.steps === n) {
+                    // Completed one cycle, turn back to initial orientation and stop the drone
+                    drone.angle = Math.atan2(vertices[1].y - vertices[0].y, vertices[1].x - vertices[0].x) * 180 / Math.PI;
+                    clearInterval(interval);
+                    document.querySelector('button[onclick="togglePauseResume()"]').disabled = true;
+                    started = false;
+                    ctx.clearRect(0, 0, width, height);
+                    drawPolygon();
+                    drawDrone();
+                    return;
+                }
+                drone.angle = Math.atan2(vertices[(drone.pathIndex + 1) % n].y - drone.y, vertices[(drone.pathIndex + 1) % n].x - drone.x) * 180 / Math.PI;
+            } else {
+                const angle = Math.atan2(dy, dx);
+                drone.x += Math.cos(angle) * (speed / 10);
+                drone.y += Math.sin(angle) * (speed / 10);
+            }
+
+            // Redraw
+            ctx.clearRect(0, 0, width, height);
+            drawPolygon();
+            drawDrone();
+        }
+
+        function drawDrone() {
+            ctx.save();
+            ctx.translate(drone.x, drone.y);
+            ctx.rotate(drone.angle * Math.PI / 180);
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.moveTo(-15, -7.5);  // Increase size by 1.5x
+            ctx.lineTo(15, 0);  // Increase size by 1.5x
+            ctx.lineTo(-15, 7.5);  // Increase size by 1.5x
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function startDrone() {
+            started = true;
+            paused = false;
+            document.querySelector('button[onclick="togglePauseResume()"]').disabled = false;
+            if (interval) clearInterval(interval);
+            interval = setInterval(moveDrone, 1000 / 60);
+        }
+
+        function togglePauseResume() {
+            paused = !paused;
+        }
+
+        function resetSimulation() {
+            document.getElementById('sides').value = 4;
+            document.getElementById('length').value = 100;
+            document.getElementById('speed').value = 5;
+            if (interval) clearInterval(interval);
+            started = false;
+            paused = false;
+            centralAngleOn = false;
+            document.querySelector('button[onclick="togglePauseResume()"]').disabled = true;
+            initSimulation();
+        }
+
+        function updateSpeed() {
+            speed = parseInt(document.getElementById('speed').value);
+        }
+
+        function toggleCentralAngle() {
+            centralAngleOn = !centralAngleOn;
+            ctx.clearRect(0, 0, width, height);
+            drawPolygon();
+            drawDrone();
+        }
+
+        // Initialize simulation with default values
+        initSimulation();
+    </script>
+</body>
+</html>
