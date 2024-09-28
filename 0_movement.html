@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quadcopter Simulation</title>
+    <style>
+        body { display: flex; font-family: Arial, sans-serif; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { padding: 10px; text-align: center; border: 1px solid #ccc; }
+        .container { width: 50%; padding: 20px; }
+        canvas { border: 1px solid black; }
+        .warning { color: red; font-weight: bold; }
+        .movement-box { margin-top: 10px; padding: 10px; border: 1px solid #000; background-color: #f9f9f9; }
+        .propeller-A { color: red; }
+        .propeller-B { color: teal; }
+        .propeller-C { color: olive; }
+        .propeller-D { color: brown; }
+        .throttle-label { position: absolute; font-size: 24px; font-weight: bold; top: 20%; left: 50%; transform: translate(-50%, -50%); }
+        .movement-label { position: absolute; font-size: 24px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Flight Movement</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Propeller</th>
+                    <th class="propeller-A">A (Front Left)</th>
+                    <th class="propeller-B">B (Front Right)</th>
+                    <th class="propeller-C">C (Rear Left)</th>
+                    <th class="propeller-D">D (Rear Right)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Relative Speed</td>
+                    <td>
+                        <select id="speedA" class="propeller-A">
+                            <option value="low">Low</option>
+                            <option value="high">High</option>
+                        </select>
+                    </td>
+                    <td>
+                        <select id="speedB" class="propeller-B">
+                            <option value="low">Low</option>
+                            <option value="high">High</option>
+                        </select>
+                    </td>
+                    <td>
+                        <select id="speedC" class="propeller-C">
+                            <option value="low">Low</option>
+                            <option value="high">High</option>
+                        </select>
+                    </td>
+                    <td>
+                        <select id="speedD" class="propeller-D">
+                            <option value="low">Low</option>
+                            <option value="high">High</option>
+                        </select>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <div id="movement" class="movement-box">
+            Movement: <span id="movement-result">None</span><br>
+            Throttle: <span id="throttle-result">None</span>
+        </div>
+        <p id="warning" class="warning"></p>
+        <button onclick="startSimulation()">Start</button>
+        <button onclick="resetSimulation()">Reset</button>
+        <button onclick="setAllSpeeds('high')">All High Speed</button>
+        <button onclick="setAllSpeeds('low')">All Low Speed</button>
+    </div>
+
+    <div class="container">
+        <h2>Simulation</h2>
+        <div style="position: relative;">
+            <canvas id="canvas" width="500" height="500"></canvas>
+            <div id="throttleLabel" class="throttle-label"></div>
+            <div id="pitchForwardLabel" class="movement-label" style="top: 10%; left: 50%; transform: translate(-50%, -50%);">Pitch Forward</div>
+            <div id="pitchBackwardLabel" class="movement-label" style="bottom: 10%; left: 50%; transform: translate(-50%, 50%);">Pitch Backward</div>
+            <div id="rollLeftLabel" class="movement-label" style="top: 50%; left: 5%; transform: translate(-50%, -50%) rotate(-90deg);">Roll Left</div>
+            <div id="rollRightLabel" class="movement-label" style="top: 50%; right: 35%; transform: translate(50%, -50%) rotate(90deg);">Roll Right</div>
+            <div id="yawLeftLabel" class="movement-label" style="top: 10%; left: 10%;">Yaw Left</div>
+            <div id="yawRightLabel" class="movement-label" style="top: 10%; right: 35%;">Yaw Right</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let x = 250, y = 250, angle = 0;
+        let previousAverageSpeed = 1;
+
+        const speeds = {
+            low: 1,
+            high: 3
+        };
+
+        let propellerRotation = 0;
+
+        function drawQuadcopter(speedA, speedB, speedC, speedD) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            // Draw quadcopter body
+            ctx.fillStyle = 'black';
+            ctx.fillRect(-10, -30, 20, 60);
+
+            // Draw propellers
+            drawPropeller(-40, -40, 'red', 'A', speedA, true);
+            drawPropeller(40, -40, 'teal', 'B', speedB, false);
+            drawPropeller(-40, 40, 'olive', 'C', speedC, false);
+            drawPropeller(40, 40, 'brown', 'D', speedD, true);
+
+            ctx.restore();
+        }
+
+        function drawPropeller(offsetX, offsetY, color, label, speed, clockwise) {
+            ctx.save();
+            ctx.translate(offsetX, offsetY);
+
+            const size = speed === 1 ? 14 : speed * 10; // 1.4x size for low speed, normal for high speed
+            ctx.fillStyle = color;
+
+            // Draw propeller circle
+            ctx.beginPath();
+            ctx.arc(0, 0, size, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Draw rotating blades
+            ctx.save();
+            ctx.rotate(clockwise ? propellerRotation : -propellerRotation);
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -size);
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, size);
+            ctx.stroke();
+            ctx.restore();
+
+            // Draw propeller label
+            ctx.fillStyle = color;
+            ctx.font = 'bold 20px Arial';
+            if (label === 'A' || label === 'B') {
+                ctx.fillText(label, -10, -size - 10);
+            } else {
+                ctx.fillText(label, -10, size + 25);
+            }
+
+            ctx.restore();
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = '#ddd';
+            for (let i = 0; i <= 500; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, 500);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(500, i);
+                ctx.stroke();
+            }
+
+            // Draw axes
+            ctx.strokeStyle = 'black';
+            ctx.beginPath();
+            ctx.moveTo(250, 0);
+            ctx.lineTo(250, 500);
+            ctx.moveTo(0, 250);
+            ctx.lineTo(500, 250);
+            ctx.stroke();
+
+            // Scales
+            ctx.fillStyle = 'black';
+            ctx.font = '12px Arial';
+            for (let i = -10; i <= 10; i++) {
+                if (i !== 0) {
+                    ctx.fillText(i, 250 + i * 25, 265);  // x-axis scale
+                    ctx.fillText(-i, 255, 250 + i * 25); // y-axis scale
+                }
+            }
+        }
+
+        function startSimulation() {
+            const speedA = speeds[document.getElementById('speedA').value];
+            const speedB = speeds[document.getElementById('speedB').value];
+            const speedC = speeds[document.getElementById('speedC').value];
+            const speedD = speeds[document.getElementById('speedD').value];
+
+            // Check for invalid combination
+            const speedValues = [speedA, speedB, speedC, speedD];
+            const uniqueSpeeds = new Set(speedValues);
+            if (uniqueSpeeds.size === 2) {
+                const [speed1, speed2] = [...uniqueSpeeds];
+                const count1 = speedValues.filter(s => s === speed1).length;
+                const count2 = speedValues.filter(s => s === speed2).length;
+                if ((count1 === 1 && count2 === 3) || (count1 === 3 && count2 === 1)) {
+                    document.getElementById('warning').innerText = "Invalid combination: Three speeds are the same and one is different.";
+                    return;
+                }
+            }
+
+            document.getElementById('warning').innerText = "";
+
+            let movement = '';
+
+            // Reset all movement labels
+            document.getElementById('pitchForwardLabel').style.display = 'none';
+            document.getElementById('pitchBackwardLabel').style.display = 'none';
+            document.getElementById('rollLeftLabel').style.display = 'none';
+            document.getElementById('rollRightLabel').style.display = 'none';
+            document.getElementById('yawLeftLabel').style.display = 'none';
+            document.getElementById('yawRightLabel').style.display = 'none';
+
+            // Pitch forward/backward
+            if ((speedA + speedB) < (speedC + speedD)) {
+                movement = 'Pitch Forward';
+                y -= 10;
+                document.getElementById('pitchForwardLabel').style.display = 'block';
+            } else if ((speedA + speedB) > (speedC + speedD)) {
+                movement = 'Pitch Backward';
+                y += 10;
+                document.getElementById('pitchBackwardLabel').style.display = 'block';
+            }
+
+            // Roll left/right
+            if ((speedA + speedC) > (speedB + speedD)) {
+                movement += (movement ? ', ' : '') + 'Roll Right';
+                x += 10;
+                document.getElementById('rollRightLabel').style.display = 'block';
+            } else if ((speedA + speedC) < (speedB + speedD)) {
+                movement += (movement ? ', ' : '') + 'Roll Left';
+                x -= 10;
+                document.getElementById('rollLeftLabel').style.display = 'block';
+            }
+
+            // Yaw left/right
+            if ((speedA + speedD) > (speedB + speedC)) {
+                movement += (movement ? ', ' : '') + 'Yaw Left';
+                angle -= Math.PI / 4;
+                document.getElementById('yawLeftLabel').style.display = 'block';
+            } else if ((speedA + speedD) < (speedB + speedC)) {
+                movement += (movement ? ', ' : '') + 'Yaw Right';
+                angle += Math.PI / 4;
+                document.getElementById('yawRightLabel').style.display = 'block';
+            }
+
+            // Throttle up/down
+            const currentAverageSpeed = (speedA + speedB + speedC + speedD) / 4;
+            let throttle = '';
+            if (speedA === speedB && speedB === speedC && speedC === speedD) {
+                if (currentAverageSpeed > previousAverageSpeed) {
+                    throttle = 'Throttle Up';
+                    document.getElementById('throttleLabel').innerText = 'Throttle Up';
+                } else if (currentAverageSpeed < previousAverageSpeed) {
+                    throttle = 'Throttle Down';
+                    document.getElementById('throttleLabel').innerText = 'Throttle Down';
+                } else {
+                    document.getElementById('throttleLabel').innerText = '';
+                }
+            } else {
+                document.getElementById('throttleLabel').innerText = '';
+            }
+
+            document.getElementById('movement-result').innerText = movement || 'None';
+            document.getElementById('throttle-result').innerText = throttle || 'None';
+            previousAverageSpeed = currentAverageSpeed;
+
+            drawQuadcopter(speedA, speedB, speedC, speedD);
+        }
+
+        function resetSimulation() {
+            x = 250;
+            y = 250;
+            angle = 0;
+            document.getElementById('movement-result').innerText = "None";
+            document.getElementById('throttle-result').innerText = "None";
+            document.getElementById('warning').innerText = "";
+            document.getElementById('speedA').value = 'low';
+            document.getElementById('speedB').value = 'low';
+            document.getElementById('speedC').value = 'low';
+            document.getElementById('speedD').value = 'low';
+            document.getElementById('throttleLabel').innerText = '';
+            document.getElementById('pitchForwardLabel').style.display = 'none';
+            document.getElementById('pitchBackwardLabel').style.display = 'none';
+            document.getElementById('rollLeftLabel').style.display = 'none';
+            document.getElementById('rollRightLabel').style.display = 'none';
+            document.getElementById('yawLeftLabel').style.display = 'none';
+            document.getElementById('yawRightLabel').style.display = 'none';
+            previousAverageSpeed = 1;
+            drawQuadcopter(1, 1, 1, 1); // Reset to default low speed
+        }
+
+        function setAllSpeeds(speed) {
+            document.getElementById('speedA').value = speed;
+            document.getElementById('speedB').value = speed;
+            document.getElementById('speedC').value = speed;
+            document.getElementById('speedD').value = speed;
+        }
+
+        setInterval(() => {
+            propellerRotation += 0.1;
+            drawQuadcopter(
+                speeds[document.getElementById('speedA').value],
+                speeds[document.getElementById('speedB').value],
+                speeds[document.getElementById('speedC').value],
+                speeds[document.getElementById('speedD').value]
+            );
+        }, 50);
+
+        resetSimulation(); // Initialize simulation
+    </script>
+</body>
+</html>
