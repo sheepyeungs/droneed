@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orbital Tracking Shot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: row;
+            justify-content: space-evenly;
+            padding: 10px;
+        }
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-right: 30px;
+        }
+        canvas {
+            border: 1px solid #000;
+        }
+        input, button {
+            margin: 10px 5px;
+            padding: 5px;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            align-items: center;
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .slider-container label {
+            margin-right: 10px;
+        }
+        .angle-info {
+            margin-top: 10px;
+            font-size: 20px;
+        }
+        .interior-angle {
+            color: green;
+            font-weight: bold;
+        }
+        .exterior-angle {
+            color: red;
+            font-weight: bold;
+        }
+        .angle-image {
+            max-width: 50%;
+            height: auto;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="left-column">
+        <h1>Orbital Tracking Shot</h1>
+        <div class="controls">
+            <label for="sides">Number of sides (3-25):</label>
+            <input type="number" id="sides" min="3" max="25" value="5" onchange="drawInitialSetup()">
+            <button onclick="startSimulation()">Start Simulation</button>
+            <button id="pauseResumeBtn" onclick="togglePauseResume()">Pause</button>
+            <button onclick="resetSimulation()">Reset</button>
+        </div>
+        <div class="slider-container">
+            <label for="speedSlider">Speed:</label>
+            <input type="range" id="speedSlider" min="1" max="3" step="0.1" value="1" onchange="updateSpeed()">
+            <span id="speedValue">1x</span>
+        </div>
+        <div class="angle-info">
+            Interior Angle: <span id="interiorAngle" class="interior-angle"></span>
+            Exterior Angle: <span id="exteriorAngle" class="exterior-angle"></span>
+        </div>
+        <img src="angle.png" alt="Angle Diagram" class="angle-image">
+    </div>
+    <canvas id="simulationCanvas" width="800" height="800"></canvas>
+
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        let animationId;
+        const radius = 200;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const gridSize = 25;
+
+        // Drone dimensions
+        const droneWidth = 40;
+        const droneHeight = 20;
+        const headSize = 10; // Green square head size
+        const tailLength = 15; // Red triangular tail length
+
+        let isPaused = false;
+        let startTime;
+        let pauseStartTime;
+        let totalPausedTime = 0;
+        let speedMultiplier = 1;
+        let dottedLineVisible = true;
+        let blinkInterval = 200; // Slower blink (5 times per second)
+        let lastBlinkTime = 0;
+
+        function drawGrid() {
+            ctx.strokeStyle = '#eee';
+            ctx.lineWidth = 1;
+
+            for (let x = 0; x <= canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+
+            for (let y = 0; y <= canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        function drawCoordinatePlane() {
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(canvas.width, centerY);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(centerX, 0);
+            ctx.lineTo(centerX, canvas.height);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#000';
+            ctx.font = '12px Arial';
+            ctx.fillText('X', canvas.width - 10, centerY - 5);
+            ctx.fillText('Y', centerX + 5, 10);
+        }
+
+        function drawPolygon(sides) {
+            // Draw the inscribed circle (grey line)
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            // Draw the polygon
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < sides; i++) {
+                const angle = (i / sides) * 2 * Math.PI;
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+                // Label vertices as A, B, C, etc.
+                const label = String.fromCharCode(65 + i);
+                const labelX = x + 20 * Math.cos(angle); // Shift label further from the polygon
+                const labelY = y + 20 * Math.sin(angle);
+                ctx.fillStyle = 'black';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText(label, labelX, labelY);
+            }
+            ctx.closePath();
+            ctx.stroke();
+        }
+
+        function drawDrone(x, y, angle) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            // Draw the black triangular tail
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.moveTo(-droneWidth / 2 - tailLength, 0); // Tip of the triangular tail
+            ctx.lineTo(-droneWidth / 2, -droneHeight / 2);
+            ctx.lineTo(-droneWidth / 2, droneHeight / 2);
+            ctx.closePath();
+            ctx.fill();
+
+            // Draw the brown rectangle body
+            ctx.fillStyle = 'brown';
+            ctx.fillRect(-droneWidth / 2, -droneHeight / 2, droneWidth, droneHeight);
+
+            // Draw the red square head
+            ctx.fillStyle = 'red';
+            ctx.fillRect(droneWidth / 2, -headSize / 2, headSize, headSize);
+
+            ctx.restore();
+        }
+
+        function drawDottedLine(x1, y1, x2, y2, timestamp) {
+            if (timestamp - lastBlinkTime >= blinkInterval) {
+                dottedLineVisible = !dottedLineVisible;
+                lastBlinkTime = timestamp;
+            }
+
+            if (dottedLineVisible) {
+                ctx.beginPath();
+                ctx.setLineDash([5, 5]);
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.strokeStyle = 'black';
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        function drawInitialSetup() {
+            const sides = parseInt(document.getElementById('sides').value);
+            if (sides < 3 || sides > 25) {
+                alert('Please enter a number between 3 and 25.');
+                return;
+            }
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+            drawCoordinatePlane();
+            drawPolygon(sides);
+            drawDrone(centerX, centerY, 0);
+            
+            // Draw the fixed black ball at the origin
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 5, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Update angle information
+            updateAngleInfo(sides);
+        }
+
+        function updateAngleInfo(sides) {
+            const interiorAngle = ((sides - 2) * 180) / sides;
+            const exteriorAngle = 360 / sides;
+            document.getElementById('interiorAngle').textContent = `${interiorAngle.toFixed(2)}°`;
+            document.getElementById('exteriorAngle').textContent = `${exteriorAngle.toFixed(2)}°`;
+        }
+
+        function startSimulation() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+
+            const sides = parseInt(document.getElementById('sides').value);
+            if (sides < 3 || sides > 25) {
+                alert('Please enter a number between 3 and 25.');
+                return;
+            }
+
+            isPaused = false;
+            totalPausedTime = 0;
+            startTime = performance.now();
+            document.getElementById('pauseResumeBtn').textContent = 'Pause';
+
+            const totalTime = 20000; // Adjusted time for 20 seconds
+            const initialMoveTime = 1000; // 1 second for initial move
+            const moveAlongPolygonTime = totalTime - 2000; // Time for polygon traversal
+            const finalMoveTime = 1000; // 1 second for final move to origin
+
+            function interpolateAngle(startAngle, endAngle, progress) {
+                const diff = endAngle - startAngle;
+                const shortestDiff = ((diff + Math.PI) % (2 * Math.PI)) - Math.PI;
+                return startAngle + shortestDiff * progress;
+            }
+
+            function getPolygonPoint(progress) {
+                const totalProgress = progress * totalTime;
+                
+                if (totalProgress < initialMoveTime) {
+                    // Initial movement from center to first vertex
+                    const moveProgress = totalProgress / initialMoveTime;
+                    const x = centerX + radius * moveProgress;
+                    const y = centerY;
+                    return { x, y, angle: 0 }; // Keep drone's green head towards the origin
+                } else if (totalProgress < initialMoveTime + moveAlongPolygonTime) {
+                    // Movement along polygon sides, keeping drone's green head towards origin
+                    const polygonProgress = (totalProgress - initialMoveTime) / moveAlongPolygonTime;
+                    const polygonIndex = Math.floor(polygonProgress * sides);
+                    const segmentProgress = polygonProgress * sides - polygonIndex;
+                    const angleOffset = (polygonIndex / sides) * 2 * Math.PI;
+                    const angleNext = ((polygonIndex + 1) / sides) * 2 * Math.PI;
+
+                    const startX = centerX + radius * Math.cos(angleOffset);
+                    const startY = centerY + radius * Math.sin(angleOffset);
+
+                    const endX = centerX + radius * Math.cos(angleNext);
+                    const endY = centerY + radius * Math.sin(angleNext);
+
+                    const x = startX + (endX - startX) * segmentProgress;
+                    const y = startY + (endY - startY) * segmentProgress;
+
+                    const angle = Math.atan2(y - centerY, x - centerX); // Tail points to the origin
+                    return { x, y, angle };
+                } else {
+                    // Final movement from vertex A back to origin
+                    const finalProgress = (totalProgress - (totalTime - finalMoveTime)) / finalMoveTime;
+                    const x = centerX + radius * (1 - finalProgress);
+                    const y = centerY;
+                    return { x, y, angle: 0 }; // Keep drone's tail towards the origin
+                }
+            }
+
+            function animate(timestamp) {
+                if (isPaused) {
+                    requestAnimationFrame(animate);
+                    return;
+                }
+                
+                const elapsedTime = (timestamp - startTime - totalPausedTime) * speedMultiplier;
+                const progress = elapsedTime / totalTime;
+
+                if (progress >= 1) {
+                    cancelAnimationFrame(animationId);
+                    drawInitialSetup();
+                    return;
+                }
+
+                const { x, y, angle } = getPolygonPoint(progress);
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawGrid();
+                drawCoordinatePlane();
+                drawPolygon(sides);
+                drawDrone(x, y, angle);
+
+                // Draw the fixed black ball at the origin
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, 5, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Draw dotted line from drone to origin
+                drawDottedLine(x, y, centerX, centerY, timestamp);
+
+                animationId = requestAnimationFrame(animate);
+            }
+
+            animate(performance.now());
+        }
+
+        function updateSpeed() {
+            const speedSlider = document.getElementById('speedSlider');
+            const speedValue = document.getElementById('speedValue');
+            speedMultiplier = parseFloat(speedSlider.value);
+            speedValue.textContent = `${speedMultiplier.toFixed(1)}x`;
+        }
+
+        function togglePauseResume() {
+            if (isPaused) {
+                isPaused = false;
+                const now = performance.now();
+                totalPausedTime += now - pauseStartTime;
+                document.getElementById('pauseResumeBtn').textContent = 'Pause';
+                requestAnimationFrame(animate);
+            } else {
+                isPaused = true;
+                pauseStartTime = performance.now();
+                document.getElementById('pauseResumeBtn').textContent = 'Resume';
+            }
+        }
+
+        function resetSimulation() {
+            cancelAnimationFrame(animationId);
+            totalPausedTime = 0;
+            isPaused = false;
+            document.getElementById('pauseResumeBtn').textContent = 'Pause';
+            document.getElementById('sides').value = '5';
+            document.getElementById('speedSlider').value = '1';
+            speedMultiplier = 1;
+            document.getElementById('speedValue').textContent = '1x';
+            blinkInterval = 200; // Reset blink interval to default
+            drawInitialSetup();
+        }
+
+        window.onload = drawInitialSetup;
+    </script>
+</body>
+</html>
