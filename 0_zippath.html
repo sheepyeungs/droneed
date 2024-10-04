@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zigzag Navigation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: space-around;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: row-reverse;
+            gap: 20px;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        input, button {
+            margin: 5px 0;
+            padding: 5px;
+        }
+        canvas {
+            border: 1px solid #000;
+        }
+        .angle-inputs {
+            display: flex;
+            gap: 10px;
+        }
+        .button-row {
+            display: flex;
+            justify-content: space-between;
+        }
+        .image-container {
+            max-width: 50%;
+            margin-top: 10px;
+        }
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 5px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        #pathInfo {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <canvas id="simulationCanvas" width="600" height="600"></canvas>
+        <div class="controls">
+            <h2>Zigzag Navigation Controls</h2>
+            <table>
+                <tr>
+                    <th>Number of sides (n)<br>3 ≤ n ≤ 25</th>
+                    <th>Number of turns (t)<br>2 ≤ t ≤ 20</th>
+                    <th>Distance (d)<br>20 ≤ d ≤ 60</th>
+                </tr>
+                <tr>
+                    <td><input type="number" id="n" min="3" max="25" value="6"></td>
+                    <td><input type="number" id="turn" min="2" max="20" value="6"></td>
+                    <td><input type="number" id="distance" min="20" max="60" value="50"></td>
+                </tr>
+            </table>
+            <div class="angle-inputs">
+                <div>
+                    <label for="int">Interior angle (int):</label>
+                    <input type="number" id="int" min="0" max="360" readonly>
+                </div>
+                <div>
+                    <label for="ext">Exterior angle (ext):</label>
+                    <input type="number" id="ext" min="0" max="360" readonly>
+                </div>
+            </div>
+            <div class="button-row">
+                <button id="generate">Generate Path</button>
+                <button id="start" disabled>Start</button>
+                <button id="pause" disabled>Pause</button>
+                <button id="reset">Reset</button>
+            </div>
+            <label for="speed">Speed:</label>
+            <input type="range" id="speed" min="1" max="10" value="3">
+            <div id="pathInfo">
+                <p>Horizontal displacement: <span id="horizontalDisplacement">0</span></p>
+                <p>Vertical displacement: <span id="verticalDisplacement">0</span></p>
+                <p>Slope: <span id="slope">0</span></p>
+                <p>Angle of elevation: <span id="angleOfElevation">0</span>°</p>
+            </div>
+            <div class="image-container">
+                <img src="zippath.png" alt="Zip Path">
+            </div>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        let path = [];
+        let originalPath = [];
+        let dronePos = { x: 0, y: 0, angle: 90 };
+        let animationId = null;
+        let isPaused = false;
+        let scale = 1;
+        let speed = 3;
+
+        function degreesToRadians(degrees) {
+            return degrees * Math.PI / 180;
+        }
+
+        function calculateAngles() {
+            const n = parseInt(document.getElementById('n').value);
+            const int = (180 * (n - 2)) / n;
+            const ext = 360 / n;
+            document.getElementById('int').value = int.toFixed(2);
+            document.getElementById('ext').value = ext.toFixed(2);
+        }
+
+        document.getElementById('n').addEventListener('input', calculateAngles);
+        document.getElementById('speed').addEventListener('input', function() {
+            speed = parseInt(this.value);
+        });
+
+        function generatePath() {
+            const n = parseInt(document.getElementById('n').value);
+            const ext = parseFloat(document.getElementById('ext').value);
+            const turn = parseInt(document.getElementById('turn').value);
+            const distance = parseInt(document.getElementById('distance').value);
+
+            path = [{x: 0, y: 0}];
+            let x = 0, y = 0, angle = 90;  // Start facing upwards
+
+            for (let i = 0; i < turn; i++) {
+                x += Math.cos(degreesToRadians(angle)) * distance;
+                y += Math.sin(degreesToRadians(angle)) * distance;
+                path.push({x, y});
+                angle += (i % 2 === 0) ? ext : -ext;  // Swapped the order of turns
+            }
+
+            originalPath = [...path];
+            resizeCanvas();
+            drawPath();
+            dronePos = { x: 0, y: 0, angle: 90 };
+            drawDrone(0, 0, 90);
+            document.getElementById('start').disabled = false;
+            resetPathInfo();
+        }
+
+        function resizeCanvas() {
+            const margin = 50;
+            let minX = Math.min(...path.map(p => p.x)) - margin;
+            let maxX = Math.max(...path.map(p => p.x)) + margin;
+            let minY = Math.min(...path.map(p => p.y)) - margin;
+            let maxY = Math.max(...path.map(p => p.y)) + margin;
+
+            const width = maxX - minX;
+            const height = maxY - minY;
+            scale = Math.min(800 / width, 800 / height);
+
+            canvas.width = 800;
+            canvas.height = 800;
+
+            // Move y-axis to the left and create more space on the positive x-axis
+            ctx.setTransform(-scale, 0, 0, -scale, canvas.width * 0.2, maxY * scale);
+        }
+
+        function drawGrid() {
+            const gridSize = 50;
+            const range = 2000;  // Adjust this value to extend the grid further
+
+            ctx.beginPath();
+            ctx.strokeStyle = '#eee';
+
+            for (let i = -range; i <= range; i += gridSize) {
+                ctx.moveTo(i, -range);
+                ctx.lineTo(i, range);
+                ctx.moveTo(-range, i);
+                ctx.lineTo(range, i);
+            }
+
+            ctx.stroke();
+
+            // Draw axes
+            ctx.beginPath();
+            ctx.strokeStyle = '#999';
+            ctx.moveTo(-range, 0);
+            ctx.lineTo(range, 0);
+            ctx.moveTo(0, -range);
+            ctx.lineTo(0, range);
+            ctx.stroke();
+        }
+
+        function drawPath() {
+            ctx.clearRect(-1000, -1000, 2000, 2000);
+            drawGrid();
+
+            ctx.beginPath();
+            ctx.moveTo(originalPath[0].x, originalPath[0].y);
+            for (let i = 1; i < originalPath.length; i++) {
+                ctx.lineTo(originalPath[i].x, originalPath[i].y);
+            }
+            ctx.strokeStyle = 'green';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw black dots at turn points
+            for (let point of originalPath) {
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 3 / scale, 0, 2 * Math.PI);
+                ctx.fillStyle = '#000';
+                ctx.fill();
+            }
+        }
+
+        function drawDrone(x, y, angle) {
+            const size = 24 / scale;  // Adjust drone size based on scale
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(degreesToRadians(angle - 270));  // Adjust rotation to face upwards
+
+            // Draw rectangle body
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(-size/4, -size/2, size/2, size);
+
+            // Draw triangular head
+            ctx.beginPath();
+            ctx.moveTo(0, size/2);
+            ctx.lineTo(-size/4, size);
+            ctx.lineTo(size/4, size);
+            ctx.closePath();
+            ctx.fillStyle = 'red';
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawDisplacementLines(x, y) {
+            ctx.save();
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 1;
+
+            // Horizontal line
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+
+            // Vertical line
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+
+            // Display displacement values
+            ctx.font = `${12 / scale}px Arial`;
+            ctx.fillStyle = 'red';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Horizontal displacement
+            ctx.save();
+            ctx.translate(x / 2, y);
+            ctx.rotate(y < 0 ? 0 : Math.PI);
+            ctx.fillText(`${Math.abs(x).toFixed(2)}`, 0, -7 / scale);
+            ctx.restore();
+
+            // Vertical displacement
+            ctx.save();
+            ctx.translate(x, y / 2);
+            ctx.rotate(x < 0 ? -Math.PI / 2 : Math.PI / 2);
+            ctx.fillText(`${Math.abs(y).toFixed(2)}`, 0, -7 / scale);
+            ctx.restore();
+
+            ctx.setLineDash([]);
+            ctx.restore();
+        }
+
+        function calculateSlopeAndAngle(x, y) {
+            const slope = y / x;
+            const angle = Math.atan(slope) * (180 / Math.PI);
+            return { slope, angle };
+        }
+
+        function updatePathInfo(x, y) {
+            const { slope, angle } = calculateSlopeAndAngle(x, y);
+            
+            document.getElementById('horizontalDisplacement').textContent = Math.abs(x).toFixed(2);
+            document.getElementById('verticalDisplacement').textContent = y.toFixed(2);
+            document.getElementById('slope').textContent = Math.abs(slope).toFixed(2);
+            document.getElementById('angleOfElevation').textContent = Math.abs(angle).toFixed(2);
+        }
+
+        function resetPathInfo() {
+            document.getElementById('horizontalDisplacement').textContent = '0';
+            document.getElementById('verticalDisplacement').textContent = '0';
+            document.getElementById('slope').textContent = '0';
+            document.getElementById('angleOfElevation').textContent = '0';
+        }
+
+        function drawFinalLine(x, y) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(x, y);
+            ctx.strokeStyle = 'rgba(128, 128, 128, 0.5)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function animateDrone() {
+            if (isPaused) {
+                requestAnimationFrame(animateDrone);
+                return;
+            }
+
+            drawPath();
+
+            if (path.length > 1) {
+                const targetPos = path[1];
+                const dx = targetPos.x - dronePos.x;
+                const dy = targetPos.y - dronePos.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > speed / scale) {
+                    dronePos.x += (dx / distance) * (speed / scale);
+                    dronePos.y += (dy / distance) * (speed / scale);
+                    dronePos.angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                } else {
+                    dronePos.x = targetPos.x;
+                    dronePos.y = targetPos.y;
+                    path.shift();
+                    if (path.length > 1) {
+                        const ext = parseFloat(document.getElementById('ext').value);
+                        dronePos.angle += (path.length % 2 === 0) ? ext : -ext;  // Swapped the order of turns
+                    } else {
+                        cancelAnimationFrame(animationId);
+                        animationId = null;
+                        document.getElementById('start').disabled = false;
+                        document.getElementById('pause').disabled = true;
+                        drawDisplacementLines(dronePos.x, dronePos.y);
+                        updatePathInfo(dronePos.x, dronePos.y);
+                        drawFinalLine(dronePos.x, dronePos.y);
+                    }
+                }
+
+                drawDrone(dronePos.x, dronePos.y, dronePos.angle);
+                animationId = requestAnimationFrame(animateDrone);
+            } else {
+                drawDrone(dronePos.x, dronePos.y, dronePos.angle);
+                drawDisplacementLines(dronePos.x, dronePos.y);
+                updatePathInfo(dronePos.x, dronePos.y);
+                drawFinalLine(dronePos.x, dronePos.y);
+            }
+        }
+
+        document.getElementById('generate').addEventListener('click', generatePath);
+
+        document.getElementById('start').addEventListener('click', function() {
+            cancelAnimationFrame(animationId);
+            dronePos = { x: 0, y: 0, angle: 90 };
+            path = [...originalPath];
+            animateDrone();
+            this.disabled = true;
+            document.getElementById('pause').disabled = false;
+        });
+
+        document.getElementById('pause').addEventListener('click', function() {
+            isPaused = !isPaused;
+            this.textContent = isPaused ? 'Resume' : 'Pause';
+            document.getElementById('start').disabled = isPaused;
+        });
+
+        document.getElementById('reset').addEventListener('click', function() {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+            isPaused = false;
+            dronePos = { x: 0, y: 0, angle: 90 };
+            path = [];
+            originalPath = [];
+            document.getElementById('n').value = 6;
+            document.getElementById('turn').value = 6;
+            document.getElementById('distance').value = 50;
+            calculateAngles();
+            drawPath();
+            drawDrone(0, 0, 90);
+            document.getElementById('start').disabled = true;
+            document.getElementById('pause').disabled = true;
+            document.getElementById('pause').textContent = 'Pause';
+            resetPathInfo();
+        });
+
+        calculateAngles();  // Initial calculation
+    </script>
+</body>
+</html>
