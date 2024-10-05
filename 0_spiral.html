@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Polygonal Spiral Path Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .left-side {
+            width: 40%;
+            padding-right: 20px;
+        }
+        .right-side {
+            width: 60%;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        input[type="number"] {
+            width: 50%;
+            box-sizing: border-box;
+        }
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 5px;
+            cursor: pointer;
+        }
+        #speedControl {
+            width: 100%;
+        }
+        canvas {
+            border: 1px solid #ddd;
+        }
+        .range-info {
+            font-size: 0.8em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="left-side">
+        <table>
+       <h1 style="text-align: left; font-size: 30px;">Spiral Navigation</h1>
+            <tr>
+                <th>Parameter</th>
+                <th>Value</th>
+            </tr>
+            <tr>
+                <td><strong>Number of sides (n)</strong></td>
+                <td>
+                    <input type="number" id="sides" min="3" max="25" value="5">
+                    <div class="range-info">Range: 3-25</div>
+                </td>
+            </tr>
+            <tr>
+                <td><strong>Exterior angle (ext)</strong></td>
+                <td><span id="extAngle">72</span>°</td>
+            </tr>
+            <tr>
+                <td><strong>Forward distance (d)</strong></td>
+                <td>
+                    <input type="number" id="distance" min="10" max="100" value="50">
+                    <div class="range-info">Range: 10-100</div>
+                </td>
+            </tr>
+            <tr>
+                <td><strong>Increment (x)</strong></td>
+                <td>
+                    <input type="number" id="increment" min="2" max="20" value="10">
+                    <div class="range-info">Range: 2-20</div>
+                </td>
+            </tr>
+            <tr>
+                <td><strong>Number of turns (t)</strong></td>
+                <td>
+                    <input type="number" id="turns" min="5" max="50" value="10">
+                    <div class="range-info">Range: 5-50</div>
+                </td>
+            </tr>
+        </table>
+        <div class="buttons">
+            <button id="generatePath">Generate Path</button>
+            <button id="start">Start</button>
+            <button id="pauseResume">Pause</button>
+            <button id="reset">Reset</button>
+        </div>
+        <input type="range" id="speedControl" min="1" max="10" value="3">
+        <label for="speedControl">Speed: <span id="speedValue">3</span></label>
+    </div>
+    <div class="right-side">
+        <canvas id="droneCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('droneCanvas');
+        const ctx = canvas.getContext('2d');
+        let animationId;
+        let isPaused = false;
+        let path = [];
+        let currentStep = 0;
+        let droneAngle = 0;
+        let droneX = 0;
+        let droneY = 0;
+        let scale = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let isAnimating = false;
+
+        function updateExtAngle() {
+            const sides = parseInt(document.getElementById('sides').value);
+            const extAngle = (360 / sides).toFixed(2);
+            document.getElementById('extAngle').textContent = extAngle;
+        }
+
+        function validateInputs() {
+            const inputs = [
+                { id: 'sides', min: 3, max: 25 },
+                { id: 'distance', min: 10, max: 100 },
+                { id: 'increment', min: 2, max: 20 },
+                { id: 'turns', min: 5, max: 50 }
+            ];
+
+            for (let input of inputs) {
+                const element = document.getElementById(input.id);
+                const value = parseInt(element.value);
+                if (isNaN(value) || value < input.min || value > input.max) {
+                    alert(`Invalid value for ${input.id}. Please enter a number between ${input.min} and ${input.max}.`);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function generatePath() {
+            if (!validateInputs()) return;
+
+            const n = parseInt(document.getElementById('sides').value);
+            const d = parseInt(document.getElementById('distance').value);
+            const x = parseInt(document.getElementById('increment').value);
+            const t = parseInt(document.getElementById('turns').value);
+            const extAngle = 360 / n;
+
+            path = [{x: 0, y: 0}];
+            let currentX = 0;
+            let currentY = 0;
+            let currentAngle = 90;
+
+            for (let i = 0; i < t; i++) {
+                const distance = d + i * x;
+                currentX += distance * Math.cos(currentAngle * Math.PI / 180);
+                currentY += distance * Math.sin(currentAngle * Math.PI / 180);
+                path.push({x: currentX, y: currentY});
+                currentAngle -= extAngle;
+            }
+
+            // Calculate canvas size and scale
+            const maxX = Math.max(...path.map(p => Math.abs(p.x)));
+            const maxY = Math.max(...path.map(p => Math.abs(p.y)));
+            const maxDimension = Math.max(maxX, maxY) * 2.2;
+            canvas.width = canvas.height = Math.min(600, window.innerWidth * 0.5);
+            scale = canvas.width / maxDimension;
+            offsetX = canvas.width / 2;
+            offsetY = canvas.height / 2;
+
+            drawPath();
+        }
+
+        function drawPath() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+
+            ctx.beginPath();
+            ctx.moveTo(offsetX + path[0].x * scale, offsetY - path[0].y * scale);
+            for (let i = 1; i < path.length; i++) {
+                ctx.lineTo(offsetX + path[i].x * scale, offsetY - path[i].y * scale);
+            }
+            ctx.strokeStyle = 'blue';
+            ctx.stroke();
+
+            // Draw spots
+            for (let spot of path) {
+                ctx.beginPath();
+                ctx.arc(offsetX + spot.x * scale, offsetY - spot.y * scale, 3, 0, 2 * Math.PI);
+                ctx.fillStyle = 'black';
+                ctx.fill();
+            }
+
+            // Draw return-to-home path
+            ctx.beginPath();
+            ctx.moveTo(offsetX + path[path.length - 1].x * scale, offsetY - path[path.length - 1].y * scale);
+            ctx.lineTo(offsetX, offsetY);
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = 'red';
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Calculate and display return-to-home distance
+            const lastPoint = path[path.length - 1];
+            const returnDistance = Math.sqrt(lastPoint.x * lastPoint.x + lastPoint.y * lastPoint.y).toFixed(2);
+            ctx.fillStyle = 'black';
+            ctx.font = '20px Arial';
+            ctx.fillText(`Return distance: ${returnDistance}`, 10, 20);
+
+            if (!isAnimating) {
+                drawDrone(0, 0, 90);
+            }
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 0.5;
+
+            for (let x = 0; x <= canvas.width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+
+            for (let y = 0; y <= canvas.height; y += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, offsetY);
+            ctx.lineTo(canvas.width, offsetY);
+            ctx.moveTo(offsetX, 0);
+            ctx.lineTo(offsetX, canvas.height);
+            ctx.stroke();
+
+            ctx.fillStyle = 'black';
+            ctx.font = '12px Arial';
+            ctx.fillText('O', offsetX - 15, offsetY + 15);
+            ctx.fillText('x', canvas.width - 10, offsetY + 15);
+            ctx.fillText('y', offsetX - 15, 10);
+        }
+
+        function drawDrone(x, y, angle) {
+            const droneRadius = 10;
+            ctx.save();
+            ctx.translate(offsetX + x * scale, offsetY - y * scale);
+            ctx.rotate(-angle * Math.PI / 180);
+            ctx.beginPath();
+            ctx.arc(0, 0, droneRadius, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function animateDrone() {
+            if (isPaused) return;
+
+            const speed = parseInt(document.getElementById('speedControl').value);
+            const progress = (currentStep % 1) + 0.01 * speed;
+
+            if (progress >= 1) {
+                currentStep = Math.floor(currentStep) + 1;
+                if (currentStep >= path.length) {
+                    returnToHome();
+                    return;
+                }
+            } else {
+                currentStep += 0.01 * speed;
+            }
+
+            const currentIndex = Math.floor(currentStep);
+            const nextIndex = Math.min(currentIndex + 1, path.length - 1);
+            const t = currentStep % 1;
+
+            droneX = path[currentIndex].x * (1 - t) + path[nextIndex].x * t;
+            droneY = path[currentIndex].y * (1 - t) + path[nextIndex].y * t;
+
+            const dx = path[nextIndex].x - path[currentIndex].x;
+            const dy = path[nextIndex].y - path[currentIndex].y;
+            droneAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+            drawPath();
+            drawDrone(droneX, droneY, droneAngle);
+
+            animationId = requestAnimationFrame(animateDrone);
+        }
+
+        function returnToHome() {
+            const startX = path[path.length - 1].x;
+            const startY = path[path.length - 1].y;
+            const returnAngle = Math.atan2(-startY, -startX) * 180 / Math.PI;
+
+            let t = 0;
+            const returnHome = () => {
+                if (isPaused) return;
+
+                t += 0.005 * parseInt(document.getElementById('speedControl').value); // Slowed down the return speed
+                if (t >= 1) {
+                    drawPath();
+                    drawDrone(0, 0, 90);
+                    isAnimating = false;
+                    return;
+                }
+
+                droneX = startX * (1 - t);
+                droneY = startY * (1 - t);
+                droneAngle = returnAngle * (1 - t) + 90 * t;
+
+                drawPath();
+                drawDrone(droneX, droneY, droneAngle);
+
+                animationId = requestAnimationFrame(returnHome);
+            };
+
+            setTimeout(() => {
+                cancelAnimationFrame(animationId);
+                returnHome();
+            }, 1000);
+        }
+
+        document.getElementById('sides').addEventListener('input', updateExtAngle);
+        document.getElementById('generatePath').addEventListener('click', generatePath);
+        document.getElementById('start').addEventListener('click', () => {
+            if (!validateInputs()) return;
+            cancelAnimationFrame(animationId);
+            currentStep = 0;
+            droneAngle = 90;
+            isPaused = false;
+            isAnimating = true;
+            animateDrone();
+        });
+        document.getElementById('pauseResume').addEventListener('click', () => {
+            isPaused = !isPaused;
+            document.getElementById('pauseResume').textContent = isPaused ? 'Resume' : 'Pause';
+            if (!isPaused) animateDrone();
+        });
+        document.getElementById('reset').addEventListener('click', () => {
+            cancelAnimationFrame(animationId);
+            document.getElementById('sides').value = 3;
+            document.getElementById('distance').value = 20;
+            document.getElementById('increment').value = 5;
+            document.getElementById('turns').value = 10;
+            document.getElementById('speedControl').value = 2;
+            document.getElementById('speedValue').textContent = 2;
+            updateExtAngle();
+            path = [];
+            currentStep = 0;
+            droneAngle = 90;
+            isPaused = false;
+            isAnimating = false;
+            document.getElementById('pauseResume').textContent = 'Pause';
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+            drawDrone(0, 0, 90);
+        });
+        document.getElementById('speedControl').addEventListener('input', function() {
+            document.getElementById('speedValue').textContent = this.value;
+        });
+
+        updateExtAngle();
+        drawGrid();
+        drawDrone(0, 0, 90);
+    </script>
+</body>
+</html>
