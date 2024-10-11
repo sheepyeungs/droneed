@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Quadcopter Flight Controls Simulator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .simulator {
+            text-align: center;
+            background-color: white;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            max-height: 98vh;
+            overflow: auto;
+        }
+        #scene {
+            width: 600px;
+            height: 400px;
+            perspective: 1000px;
+            margin: 0 auto;
+            position: relative;
+            overflow: hidden;
+            transform-style: preserve-3d;
+        }
+        #world {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            transform-style: preserve-3d;
+            transition: transform 0.3s;
+        }
+        #grid {
+            width: 600px;
+            height: 600px;
+            position: absolute;
+            top: -100px;
+            left: 0;
+            background-image:
+                linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            transform: rotateX(90deg);
+        }
+        #horizontal-plane {
+            width: 600px;
+            height: 600px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background-color: rgba(200, 200, 200, 0.3);
+            transform: translateY(200px) rotateX(90deg);
+        }
+        #quadcopter {
+            width: 48px;
+            height: 48px;
+            position: absolute;
+            top: 45%;
+            left: 45%;
+            transform-style: preserve-3d;
+            transition: transform 0.1s;
+        }
+        .face {
+            position: absolute;
+            width: 48px;
+            height: 48px;
+            background-color: rgba(52, 152, 219, 0.7);
+            border: 2px solid #2980b9;
+        }
+        .front { 
+            transform: translateZ(24px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 22px;
+            font-weight: bold;
+            color: white;
+        }
+        .back { 
+            transform: translateZ(-24px) rotateY(180deg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 22px;
+            font-weight: bold;
+            color: white;
+        }
+        .right { transform: translateX(24px) rotateY(90deg); }
+        .left { transform: translateX(-24px) rotateY(-90deg); }
+        .top { transform: translateY(-24px) rotateX(90deg); }
+        .bottom { transform: translateY(24px) rotateX(-90deg); }
+        .controls {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+        }
+        .control-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            gap: 3px;
+        }
+        button {
+            font-size: 12px;
+            padding: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .left-button {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .right-button {
+            background-color: #FFA500;
+            color: white;
+        }
+        #instructions {
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        .empty-button {
+            visibility: hidden;
+        }
+        #view-controls {
+            margin-top: 10px;
+        }
+        .view-button {
+            background-color: #3498db;
+            color: white;
+            margin: 0 5px;
+        }
+        #axis {
+            position: absolute;
+            top: 50%;
+            left: 12%;
+            transform-style: preserve-3d;
+        }
+        .axis-line {
+            position: absolute;
+            width: 450px;
+            height: 2px;
+            background-color: black;
+            transform-origin: center;
+        }
+        #x-axis { 
+            transform: rotateY(-90deg); 
+            background-color: red; 
+        }
+        #y-axis { transform: rotateX(90deg); background-color: green; }
+        #z-axis { background-color: blue; }
+        .axis-label {
+            position: absolute;
+            font-size: 12px;
+            font-weight: bold;
+            color: black;
+        }
+        #front-label {
+            left: 10px;
+            top: -25px;
+        }
+        #rear-label {
+            right: 10px;
+            top: -25px;
+        }
+        #right-label {
+            left: 410px;
+            top: 10px;
+        }
+        #left-label {
+            left: 5px;
+            top: 10px;
+        }
+        .corner-light {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+        .front-light {
+            background-color: red;
+            top: -10px;
+        }
+        .rear-light {
+            background-color: green;
+            top: +40px;
+        }
+        #front-left-light { left: -9px; }
+        #front-right-light { right: -9px; }
+        #rear-left-light { left: -9px; }
+        #rear-right-light { right: -9px; }
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .arrow {
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 20px solid blue;
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+    </style>
+</head>
+<body>
+    <div class="simulator">
+        <h2>3D Quadcopter Flight Controls Simulator</h2>
+        <div id="scene">
+            <div id="world">
+                <div id="grid"></div>
+                <div id="horizontal-plane"></div>
+                <div id="quadcopter">
+                    <div class="face front"></div>
+                    <div class="face back">D</div>
+                    <div class="face right"></div>
+                    <div class="face left"></div>
+                    <div class="face top">
+                        <div class="corner-light front-light" id="front-left-light"></div>
+                        <div class="corner-light front-light" id="front-right-light"></div>
+                        <div class="corner-light rear-light" id="rear-left-light"></div>
+                        <div class="corner-light rear-light" id="rear-right-light"></div>
+                        <div class="arrow"></div>
+                    </div>
+                    <div class="face bottom"></div>
+                </div>
+                <div id="axis">
+                    <div class="axis-line" id="x-axis">
+                        <span class="axis-label" id="rear-label">REAR</span>
+                        <span class="axis-label" id="front-label">FRONT</span>
+                    </div>
+                    <div class="axis-line" id="y-axis"></div>
+                    <div class="axis-line" id="z-axis">
+                        <span class="axis-label" id="right-label">RIGHT</span>
+                        <span class="axis-label" id="left-label">LEFT</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="controls">
+            <div class="control-group">
+                <button class="empty-button"></button>
+                <button id="throttle-up" class="left-button">Throttle Up</button>
+                <button class="empty-button"></button>
+                <button id="yaw-left" class="left-button">Yaw Left</button>
+                <button></button>
+                <button id="yaw-right" class="left-button">Yaw Right</button>
+                <button class="empty-button"></button>
+                <button id="throttle-down" class="left-button">Throttle Down</button>
+                <button class="empty-button"></button>
+            </div>
+            <div style="width: 20px;"></div>
+            <div class="control-group">
+                <button class="empty-button"></button>
+                <button id="pitch-forward" class="right-button">Pitch Forward</button>
+                <button class="empty-button"></button>
+                <button id="roll-left" class="right-button">Roll Left</button>
+                <button></button>
+                <button id="roll-right" class="right-button">Roll Right</button>
+                <button class="empty-button"></button>
+                <button id="pitch-backward" class="right-button">Pitch Backward</button>
+                <button class="empty-button"></button>
+            </div>
+        </div>
+        <div id="view-controls">
+            <button id="view-clockwise" class="view-button">View Clockwise</button>
+            <button id="view-anticlockwise" class="view-button">View Anticlockwise</button>
+        </div>
+        <p></p> 
+        <button id="reset">Reset</button>
+    </div>
+
+    <script>
+        const quadcopter = document.getElementById('quadcopter');
+        const world = document.getElementById('world');
+        let yaw = 0;
+        let pitch = 0;
+        let roll = 0;
+        let x = 0;
+        let y = 0;
+        let z = 0;
+        let scale = 1.2;
+        let viewAngleX = -20;
+        let viewAngleY = 0;
+
+        function updateQuadcopterPosition() {
+            quadcopter.style.transform = `
+                translate3d(${x}px, ${-z}px, ${-y}px)
+                rotateY(${yaw}deg)
+                rotateX(${pitch}deg)
+                rotateZ(${-roll}deg)
+                scale3d(${scale}, ${scale}, ${scale})
+            `;
+            world.style.transform = `
+                rotateX(${viewAngleX}deg)
+                rotateY(${viewAngleY}deg)
+            `;
+        }
+
+        function throttleUp() { 
+            z = Math.min(z + 2, 200); 
+            updateQuadcopterPosition(); 
+        }
+        function throttleDown() { 
+            z = Math.max(z - 2, -200); 
+            updateQuadcopterPosition(); 
+        }
+        function yawLeft() { yaw += 1; updateQuadcopterPosition(); }
+        function yawRight() { yaw -= 1; updateQuadcopterPosition(); }
+        function pitchForward() { 
+            const angle = yaw * Math.PI / 180;
+            pitch = Math.min(pitch + 1, 30);
+            y += 2 * Math.cos(angle);
+            x -= 2 * Math.sin(angle);
+            updateQuadcopterPosition();
+        }
+        function pitchBackward() { 
+            const angle = yaw * Math.PI / 180;
+            pitch = Math.max(pitch - 1, -30);
+            y -= 2 * Math.cos(angle);
+            x += 2 * Math.sin(angle);
+            updateQuadcopterPosition();
+        }
+        function rollLeft() { 
+            const angle = yaw * Math.PI / 180;
+            roll = Math.min(roll + 1, 30);
+            x -= 1 * Math.cos(angle);
+            y -= 1 * Math.sin(angle);
+            updateQuadcopterPosition();
+        }
+        function rollRight() { 
+            const angle = yaw * Math.PI / 180;
+            roll = Math.max(roll - 1, -30);
+            x += 1 * Math.cos(angle);
+            y += 1 * Math.sin(angle);
+            updateQuadcopterPosition();
+        }
+        function viewClockwise() {
+            viewAngleY -= 5;
+            updateQuadcopterPosition();
+        }
+        function viewAnticlockwise() {
+            viewAngleY += 5;
+            updateQuadcopterPosition();
+        }
+
+        function reset() {
+            yaw = 0;
+            pitch = 0;
+            roll = 0;
+            x = 0;
+            y = 0;
+            z = 0;
+            scale = 1.2;
+            viewAngleX = -20;
+            viewAngleY = 0;
+            updateQuadcopterPosition();
+        }
+
+        function addContinuousEventListener(elementId, callback, releaseCallback = null) {
+            let intervalId = null;
+            const element = document.getElementById(elementId);
+            element.addEventListener('mousedown', () => {
+                callback();
+                intervalId = setInterval(callback, 30);
+            });
+            element.addEventListener('mouseup', () => {
+                clearInterval(intervalId);
+                if (releaseCallback) releaseCallback();
+            });
+            element.addEventListener('mouseleave', () => {
+                clearInterval(intervalId);
+                if (releaseCallback) releaseCallback();
+            });
+        }
+
+        function releasePitch() {
+            const intervalId = setInterval(() => {
+                if (pitch > 0) {
+                    pitch--;
+                    const angle = yaw * Math.PI / 180;
+                    y -= 2 * Math.cos(angle);
+                    x += 2 * Math.sin(angle);
+                }
+                else if (pitch < 0) {
+                    pitch++;
+                    const angle = yaw * Math.PI / 180;
+                    y += 2 * Math.cos(angle);
+                    x -= 2 * Math.sin(angle);
+                }
+                else {
+                    clearInterval(intervalId);
+                }
+                updateQuadcopterPosition();
+            }, 30);
+        }
+
+        function releaseRoll() {
+            const intervalId = setInterval(() => {
+                if (roll > 0) {
+                    roll--;
+                    const angle = yaw * Math.PI / 180;
+                    x += 1 * Math.cos(angle);
+                    y += 1 * Math.sin(angle);
+                }
+                else if (roll < 0) {
+                    roll++;
+                    const angle = yaw * Math.PI / 180;
+                    x -= 1 * Math.cos(angle);
+                    y -= 1 * Math.sin(angle);
+                }
+                else {
+                    clearInterval(intervalId);
+                }
+                updateQuadcopterPosition();
+            }, 30);
+        }
+
+        addContinuousEventListener('throttle-up', throttleUp);
+        addContinuousEventListener('throttle-down', throttleDown);
+        addContinuousEventListener('yaw-left', yawLeft);
+        addContinuousEventListener('yaw-right', yawRight);
+        addContinuousEventListener('pitch-forward', pitchForward, releasePitch);
+        addContinuousEventListener('pitch-backward', pitchBackward, releasePitch);
+        addContinuousEventListener('roll-left', rollLeft, releaseRoll);
+        addContinuousEventListener('roll-right', rollRight, releaseRoll);
+        addContinuousEventListener('view-clockwise', viewClockwise);
+        addContinuousEventListener('view-anticlockwise', viewAnticlockwise);
+        document.getElementById('reset').addEventListener('click', reset);
+
+        // Keyboard controls
+        const keyMap = {
+            'w': throttleUp,
+            's': throttleDown,
+            'a': yawLeft,
+            'd': yawRight,
+            'ArrowUp': pitchForward,
+            'ArrowDown': pitchBackward,
+            'ArrowLeft': rollLeft,
+            'ArrowRight': rollRight,
+            'q': viewAnticlockwise,
+            'e': viewClockwise,
+            'r': reset
+        };
+
+        const keyReleaseMap = {
+            'ArrowUp': releasePitch,
+            'ArrowDown': releasePitch,
+            'ArrowLeft': releaseRoll,
+            'ArrowRight': releaseRoll,
+        };
+
+        let keyIntervals = {};
+
+        document.addEventListener('keydown', (e) => {
+            if (keyMap[e.key] && !keyIntervals[e.key]) {
+                keyMap[e.key]();
+                keyIntervals[e.key] = setInterval(keyMap[e.key], 30);
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (keyIntervals[e.key]) {
+                clearInterval(keyIntervals[e.key]);
+                delete keyIntervals[e.key];
+                if (keyReleaseMap[e.key]) keyReleaseMap[e.key]();
+            }
+        });
+
+        // Initialize the quadcopter position
+        updateQuadcopterPosition();
+    </script>
+</body>
+</html>
