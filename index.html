@@ -23,6 +23,10 @@
             border: none;
             border-radius: 5px;
         }
+        .button-olive {
+            background-color: olive;
+            color: white;
+        }
         .button-brown {
             background-color: brown;
             color: white;
@@ -65,50 +69,55 @@
     <h1 style="text-align: center;">Drone-Integrated Cross-Disciplinary STEM Learning</h1>
     <h3 style="text-align: center;">Richard C Y YEUNG, The Education University of Hong Kong</h3>
     <div class="button-container">
-        <button class="button-brown" onclick="showApp('app1')">Movement</button>
-        <button class="button-green" onclick="showApp('app2')">AOV</button>
-        <button class="button-orange" onclick="showApp('app3')">GPS</button>
-        <button class="button-teal" onclick="showApp('app4')">Speed</button>
-        <button class="button-salmon" onclick="showApp('app5')">Polygonal</button>
-        <button class="button-blue" onclick="showApp('app6')">ZigZag</button>
-        <button class="button-chocolate" onclick="showApp('app7')">Spiral</button>
-        <button class="button-black" onclick="showApp('app8')">Orbital</button>        
-        <button class="button-violet" onclick="showApp('app9')">Melodic</button>
+        <button class="button-olive" onclick="showApp('app1')">3D Control</button>
+        <button class="button-brown" onclick="showApp('app2')">Movement</button>
+        <button class="button-green" onclick="showApp('app3')">AOV</button>
+        <button class="button-orange" onclick="showApp('app4')">GPS</button>
+        <button class="button-teal" onclick="showApp('app5')">Speed</button>
+        <button class="button-salmon" onclick="showApp('app6')">Polygonal</button>
+        <button class="button-blue" onclick="showApp('app7')">ZigZag</button>
+        <button class="button-chocolate" onclick="showApp('app8')">Spiral</button>
+        <button class="button-black" onclick="showApp('app9')">Orbital</button>        
+        <button class="button-violet" onclick="showApp('app10')">Melodic</button>
     </div>
 
     <div id="app1" class="app">
+        <iframe src="0_control.html" width="100%" height="600px" frameborder="0"></iframe>
+    </div>
+
+        <div id="app2" class="app">
         <iframe src="0_movement.html" width="100%" height="600px" frameborder="0"></iframe>
     </div>
     
-    <div id="app2" class="app">
+    <div id="app3" class="app">
         <iframe src="0_FOV1.html" width="100%" height="600px" frameborder="0"></iframe>
     </div>
 
-    <div id="app3" class="app">
+    <div id="app4" class="app">
         <iframe src="0_GPS2x2.html" width="100%" height="600px" frameborder="0"></iframe>
     </div>
 
-    <div id="app4" class="app">
+    <div id="app5" class="app">
         <iframe src="0_Speed.html" width="100%" height="600px" frameborder="0"></iframe>
     </div>
 
-    <div id="app5" class="app">
+    <div id="app6" class="app">
         <iframe src="0_Polygon.html" width="100%" height="600px" frameborder="0"></iframe>
     </div>
 
-    <div id="app6" class="app">
+    <div id="app7" class="app">
         <iframe src="0_zippath.html" width="100%" height="600px" frameborder="0"></iframe>
     </div>
 
-    <div id="app7" class="app">
+    <div id="app8" class="app">
         <iframe src="0_spiral.html" width="100%" height="600px" frameborder="0"></iframe>
     </div>
 
-    <div id="app8" class="app">
+    <div id="app9" class="app">
         <iframe src="0_orbit.html" width="100%" height="600px" frameborder="0"></iframe>
     </div>
    
-    <div id="app9" class="app">
+    <div id="app10" class="app">
         <iframe src="0_music.html" width="100%" height="600px" frameborder="0"></iframe>
     </div>
     <script>
