@@ -126,6 +126,11 @@
             padding: 5px;
             cursor: pointer;
             font-weight: bold;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            touch-action: manipulation;
         }
         .left-button {
             background-color: #4CAF50;
@@ -421,18 +426,26 @@
         function addContinuousEventListener(elementId, callback, releaseCallback = null) {
             let intervalId = null;
             const element = document.getElementById(elementId);
-            element.addEventListener('mousedown', () => {
+            
+            const startAction = (e) => {
+                e.preventDefault();
                 callback();
                 intervalId = setInterval(callback, 30);
-            });
-            element.addEventListener('mouseup', () => {
+            };
+            
+            const stopAction = (e) => {
+                e.preventDefault();
                 clearInterval(intervalId);
                 if (releaseCallback) releaseCallback();
-            });
-            element.addEventListener('mouseleave', () => {
-                clearInterval(intervalId);
-                if (releaseCallback) releaseCallback();
-            });
+            };
+
+            element.addEventListener('mousedown', startAction);
+            element.addEventListener('touchstart', startAction);
+            
+            element.addEventListener('mouseup', stopAction);
+            element.addEventListener('mouseleave', stopAction);
+            element.addEventListener('touchend', stopAction);
+            element.addEventListener('touchcancel', stopAction);
         }
 
         function releasePitch() {
