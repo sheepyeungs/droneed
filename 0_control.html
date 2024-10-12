@@ -15,6 +15,7 @@
             background-color: #f0f0f0;
         }
         .simulator {
+            display: flex;
             text-align: center;
             background-color: white;
             padding: 10px;
@@ -22,6 +23,17 @@
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             max-height: 98vh;
             overflow: auto;
+            width: 100%;
+            max-width: 1200px;
+        }
+        .left-side {
+            width: 30%;
+            padding-right: 10px;
+            border-right: 1px solid #ccc;
+        }
+        .right-side {
+            width: 70%;
+            padding-left: 10px;
         }
         #scene {
             width: 600px;
@@ -214,73 +226,109 @@
             left: 50%;
             transform: translateX(-50%);
         }
+        .info-section {
+            text-align: left;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .info-section h3 {
+            margin-bottom: 10px;
+        }
+        .info-section p {
+            margin: 5px 0;
+        }
+        .green {
+            color: #4CAF50;
+        }
+        .orange {
+            color: #FFA500;
+        }
     </style>
 </head>
 <body>
     <div class="simulator">
-        <h2>3D Quadcopter Flight Controls Simulator</h2>
-        <div id="scene">
-            <div id="world">
-                <div id="grid"></div>
-                <div id="horizontal-plane"></div>
-                <div id="quadcopter">
-                    <div class="face front"></div>
-                    <div class="face back">D</div>
-                    <div class="face right"></div>
-                    <div class="face left"></div>
-                    <div class="face top">
-                        <div class="corner-light front-light" id="front-left-light"></div>
-                        <div class="corner-light front-light" id="front-right-light"></div>
-                        <div class="corner-light rear-light" id="rear-left-light"></div>
-                        <div class="corner-light rear-light" id="rear-right-light"></div>
-                        <div class="arrow"></div>
+        <div class="left-side">
+            <div class="info-section">
+                <h3>Keyboard Controls</h3>
+                <p><span class="green"><strong>W / S = Throttle Up / Down </strong></span></p>
+                <p><span class="green"><strong>A / D = Yaw Left / Right</strong></span></p>
+                <p><span class="orange"><strong>Up / Down Arrow = Pitch Forward / Backward</strong></span></p>
+                <p><span class="orange"><strong>Left / Right Arrow = Roll Left / Right</strong></span></p>
+            </div>
+            <div class="info-section">
+                <h3>Piloting Techniques</h3>
+                <p><span class="green"><strong>Yaw Left</span> + <span class="orange">Roll Right</strong></span> = Anti-clockwise Orbit</p>
+                <p><span class="green"><strong>Yaw Right</span> + <span class="orange">Roll Left</strong></span> = Clockwise Orbit</p>
+                <p><span class="green"><strong>Yaw Left</span> + <span class="orange">Pitch Forward</strong></span> = Anticlockwise Circles</p>
+                <p><span class="green"><strong>Yaw Right</span> + <span class="orange">Pitch Forward</strong></span> = Clockwise Circles</p>
+                <p><span class="orange"><strong>Pitch Forward</span> + <span class="green">Yaw Left/Right</strong></span> = Figure 8</p>
+            </div>
+        </div>
+        <div class="right-side">
+            <h2>3D Quadcopter Flight Controls Simulator</h2>
+            <div id="scene">
+                <div id="world">
+                    <div id="grid"></div>
+                    <div id="horizontal-plane"></div>
+                    <div id="quadcopter">
+                        <div class="face front"></div>
+                        <div class="face back">D</div>
+                        <div class="face right"></div>
+                        <div class="face left"></div>
+                        <div class="face top">
+                            <div class="corner-light front-light" id="front-left-light"></div>
+                            <div class="corner-light front-light" id="front-right-light"></div>
+                            <div class="corner-light rear-light" id="rear-left-light"></div>
+                            <div class="corner-light rear-light" id="rear-right-light"></div>
+                            <div class="arrow"></div>
+                        </div>
+                        <div class="face bottom"></div>
                     </div>
-                    <div class="face bottom"></div>
+                    <div id="axis">
+                        <div class="axis-line" id="x-axis">
+                            <span class="axis-label" id="rear-label">REAR</span>
+                            <span class="axis-label" id="front-label">FRONT</span>
+                        </div>
+                        <div class="axis-line" id="y-axis"></div>
+                        <div class="axis-line" id="z-axis">
+                            <span class="axis-label" id="right-label">RIGHT</span>
+                            <span class="axis-label" id="left-label">LEFT</span>
+                        </div>
+                    </div>
                 </div>
-                <div id="axis">
-                    <div class="axis-line" id="x-axis">
-                        <span class="axis-label" id="rear-label">REAR</span>
-                        <span class="axis-label" id="front-label">FRONT</span>
-                    </div>
-                    <div class="axis-line" id="y-axis"></div>
-                    <div class="axis-line" id="z-axis">
-                        <span class="axis-label" id="right-label">RIGHT</span>
-                        <span class="axis-label" id="left-label">LEFT</span>
-                    </div>
+            </div>
+            <div class="controls">
+                <div class="control-group">
+                    <button class="empty-button"></button>
+                    <button id="throttle-up" class="left-button">Throttle Up</button>
+                    <button class="empty-button"></button>
+                    <button id="yaw-left" class="left-button">Yaw Left</button>
+                    <button></button>
+                    <button id="yaw-right" class="left-button">Yaw Right</button>
+                    <button class="empty-button"></button>
+                    <button id="throttle-down" class="left-button">Throttle Down</button>
+                    <button class="empty-button"></button>
+                </div>
+                <div style="width: 20px;"></div>
+                <div class="control-group">
+                    <button class="empty-button"></button>
+                    <button id="pitch-forward" class="right-button">Pitch Forward</button>
+                    <button class="empty-button"></button>
+                    <button id="roll-left" class="right-button">Roll Left</button>
+                    <button></button>
+                    <button id="roll-right" class="right-button">Roll Right</button>
+                    <button class="empty-button"></button>
+                    <button id="pitch-backward" class="right-button">Pitch Backward</button>
+                    <button class="empty-button"></button>
                 </div>
             </div>
-        </div>
-        <div class="controls">
-            <div class="control-group">
-                <button class="empty-button"></button>
-                <button id="throttle-up" class="left-button">Throttle Up</button>
-                <button class="empty-button"></button>
-                <button id="yaw-left" class="left-button">Yaw Left</button>
-                <button></button>
-                <button id="yaw-right" class="left-button">Yaw Right</button>
-                <button class="empty-button"></button>
-                <button id="throttle-down" class="left-button">Throttle Down</button>
-                <button class="empty-button"></button>
+            <div id="view-controls">
+                <button id="view-clockwise" class="view-button">View Clockwise</button>
+                <button id="view-anticlockwise" class="view-button">View Anticlockwise</button>
             </div>
-            <div style="width: 20px;"></div>
-            <div class="control-group">
-                <button class="empty-button"></button>
-                <button id="pitch-forward" class="right-button">Pitch Forward</button>
-                <button class="empty-button"></button>
-                <button id="roll-left" class="right-button">Roll Left</button>
-                <button></button>
-                <button id="roll-right" class="right-button">Roll Right</button>
-                <button class="empty-button"></button>
-                <button id="pitch-backward" class="right-button">Pitch Backward</button>
-                <button class="empty-button"></button>
-            </div>
+            <p></p> 
+            <button id="reset">Reset</button>
         </div>
-        <div id="view-controls">
-            <button id="view-clockwise" class="view-button">View Clockwise</button>
-            <button id="view-anticlockwise" class="view-button">View Anticlockwise</button>
-        </div>
-        <p></p> 
-        <button id="reset">Reset</button>
     </div>
 
     <script>
@@ -294,7 +342,7 @@
         let z = 0;
         let scale = 1.2;
         let viewAngleX = -20;
-        let viewAngleY = 0;
+        let viewAngleY = 30; // Changed initial orientation to 30 deg anticlockwise
 
         function updateQuadcopterPosition() {
             quadcopter.style.transform = `
@@ -366,7 +414,7 @@
             z = 0;
             scale = 1.2;
             viewAngleX = -20;
-            viewAngleY = 0;
+            viewAngleY = 30; // Reset to initial 30 deg anticlockwise
             updateQuadcopterPosition();
         }
 
