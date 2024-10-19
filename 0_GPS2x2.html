@@ -11,7 +11,7 @@
             padding: 20px;
             display: flex;
             flex-direction: column;
-            align-items: left;
+            align-items: flex-start;
         }
         h1, h2, h3 {
             text-align: center;
@@ -30,10 +30,17 @@
         }
         canvas {
             border: 1px solid #000;
-            cursor: move;
+            cursor: grab;
+            touch-action: none; /* Prevent touch gestures from interfering with dragging */
+        }
+        canvas:active {
+            cursor: grabbing;
         }
         .controls {
-            margin-bottom: 20px;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
         table {
             border-collapse: collapse;
@@ -42,407 +49,528 @@
         th, td {
             border: 1px solid #ddd;
             padding: 8px;
-            text-align: left;
+            text-align: center;
         }
         th {
             background-color: #f2f2f2;
         }
         input {
             width: 60px;
+            text-align: center;
         }
-        #calculation-steps {
-            margin-top: 20px;
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex: 1; /* Adjusted to make left and right panels equal */
         }
-        .red { color: red; }
-        .green { color: green; }
-        .blue { color: blue; }
-        .purple { color: purple; }
+        .box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .equations, .steps {
+            font-size: 14px;
+        }
+        .step {
+            margin-bottom: 10px;
+        }
+        .drag-handle {
+            cursor: grab;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+        .hidden {
+            display: none;
+        }
+        button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            cursor: pointer;
+            width: 100px; /* Adjusted width */
+        }
+        @media (max-width: 1200px) {
+            .container {
+                flex-direction: column;
+            }
+            .right-panel {
+                width: 100%;
+            }
+        }
+        /* Additional styles for Triangle Buttons */
+        .triangleButton {
+            width: 80px;
+            padding: 5px;
+            margin: 2px 0;
+        }
+        /* Style for Reset Button */
+        #resetButton {
+            width: 100px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
-<h1 style="text-align: left; font-size: 24px;">Positioning of Drone via GPS Trilateration</h1>
-<h2 style="text-align: left; font-size: 16px;">(simplified 2D simulation)</h2>
+    <h1 style="text-align: left; font-size: 24px;">Positioning of Drone via GPS Trilateration</h1>
+    <h2 style="text-align: left; font-size: 16px;">(simplified 2D simulation)</h2>
     <div class="container">
-        <div class="visualization">
-            <canvas id="trilaterationCanvas" width="750" height="600"></canvas>
+        <div class="visualization" style="flex:1;">
+            <canvas id="trilaterationCanvas" width="800" height="800"></canvas>
             <div class="controls">
                 <table>
                     <tr>
                         <th>Satellite</th>
-                        <th>x (-1000 to 1000)</th>
-                        <th>y (-1000 to 1000)</th>
-                        <th>Radius (100-1000 km)</th>
+                        <th>x</th>
+                        <th>y</th>
+                        <th>Radius</th>
+                        <th>Triangle</th> <!-- New Triangle Column -->
                     </tr>
                     <tr>
                         <td>1 (Red)</td>
-                        <td><input type="number" id="sat1x" min="-1000" max="1000" value="-60" step="10"></td>
-                        <td><input type="number" id="sat1y" min="-1000" max="1000" value="-80" step="10"></td>
-                        <td><input type="number" id="sat1r" min="100" max="1000" value="540" step="10"></td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td><input type="number" id="sat1r" value="29" min="0"></td>
+                        <td><button class="triangleButton" data-sat="1">Sat 1</button></td> <!-- Triangle Button -->
                     </tr>
                     <tr>
                         <td>2 (Green)</td>
-                        <td><input type="number" id="sat2x" min="-1000" max="1000" value="850" step="10"></td>
-                        <td><input type="number" id="sat2y" min="-1000" max="1000" value="260" step="10"></td>
-                        <td><input type="number" id="sat2r" min="100" max="1000" value="507" step="10"></td>
+                        <td>36</td>
+                        <td>0</td>
+                        <td><input type="number" id="sat2r" value="25" min="0"></td>
+                        <td><button class="triangleButton" data-sat="2">Sat 2</button></td> <!-- Triangle Button -->
                     </tr>
                     <tr>
                         <td>3 (Blue)</td>
-                        <td><input type="number" id="sat3x" min="-1000" max="1000" value="310" step="10"></td>
-                        <td><input type="number" id="sat3y" min="-1000" max="1000" value="720" step="10"></td>
-                        <td><input type="number" id="sat3r" min="100" max="1000" value="442" step="10"></td>
-
-                    </tr>
-                    <tr>
-                        <td>4 (Purple)</td>
-                        <td><input type="number" id="sat4x" min="-1000" max="1000" value="-90" step="10"></td>
-                        <td><input type="number" id="sat4y" min="-1000" max="1000" value="500" step="10"></td>
-                        <td><input type="number" id="sat4r" min="100" max="1000" value="486" step="10"></td>
-
+                        <td>16</td>
+                        <td>32</td>
+                        <td><input type="number" id="sat3r" value="13" min="0"></td>
+                        <td><button class="triangleButton" data-sat="3">Sat 3</button></td> <!-- Triangle Button -->
                     </tr>
                 </table>
+                <button id="resetButton">Reset</button> <!-- Reset Button -->
             </div>
-            <button onclick="updateTrilateration()">Update Trilateration</button>
-            <button id="toggleTriangle1">Satellite 1</button>
-            <button id="toggleTriangle2">Satellite 2</button>
-            <button id="toggleTriangle3">Satellite 3</button>
-            <button id="toggleTriangle4">Satellite 4</button>        </div>
-        <div class="calculation">
-<div id="satellite-info">
-    <table style="font-size: 16px;">
-        <tr>
-            <th style="width: 100px;">Satellite</th>
-            <th>x</th>
-            <th>y</th>
-            <th>dx</th>
-            <th>dy</th>
-        </tr>
-        <tr style="color: red;">
-            <td>1 (Red)</td>
-            <td id="sat1xCoord"></td>
-            <td id="sat1yCoord"></td>
-            <td id="sat1dx"></td>
-            <td id="sat1dy"></td>
-        </tr>
-        <tr style="color: green;">
-            <td>2 (Green)</td>
-            <td id="sat2xCoord"></td>
-            <td id="sat2yCoord"></td>
-            <td id="sat2dx"></td>
-            <td id="sat2dy"></td>
-        </tr>
-        <tr style="color: blue;">
-            <td>3 (Blue)</td>
-            <td id="sat3xCoord"></td>
-            <td id="sat3yCoord"></td>
-            <td id="sat3dx"></td>
-            <td id="sat3dy"></td>
-        </tr>
-        <tr style="color: purple;">
-            <td>4 (Purple)</td>
-            <td id="sat4xCoord"></td>
-            <td id="sat4yCoord"></td>
-            <td id="sat4dx"></td>
-            <td id="sat4dy"></td>
-        </tr>
-    </table>
-</div>
-            <div id="calculation-steps"></div>
+        </div>
+        <div class="right-panel">
+            <!-- Box 1 Removed: Triangles -->
+            <!-- Box 2: Equations -->
+            <div class="box" id="equations-box">
+                <h3>Simultaneous Equations</h3>
+                <div class="equations" id="equations">
+                    <!-- Equations will be dynamically generated here -->
+                </div>
+            </div>
+            <!-- Box 3: Step-by-Step Solution -->
+            <div class="box" id="steps-box">
+                <h3>Solution Steps</h3>
+                <div class="steps" id="steps">
+                    <!-- Step-by-step solution will be dynamically generated here -->
+                </div>
+            </div>
         </div>
     </div>
     <script>
         const canvas = document.getElementById('trilaterationCanvas');
         const ctx = canvas.getContext('2d');
-        let droneX, droneY;
+        let droneX = 21, droneY = 20; // Initial drone position based on the test case
         let isDragging = false;
-        let scale = 1;
-        let offsetX = 0;
-        let offsetY = 0;
-        const c = 299792458; // Speed of light in m/s
+        let scale = 800 / 100; // 100 units span (-50 to 50), so scale = 8 pixels per unit
+        let offsetX = canvas.width / 2;
+        let offsetY = canvas.height / 2;
+
+        // Satellite data
+        const satellites = [
+            { id: 1, x: 0, y: 0, r: 29, color: 'red' },
+            { id: 2, x: 36, y: 0, r: 25, color: 'green' },
+            { id: 3, x: 16, y: 32, r: 13, color: 'blue' }
+        ];
+
+        // Triangle visibility states
         let showTriangle1 = false;
         let showTriangle2 = false;
         let showTriangle3 = false;
-        let showTriangle4 = false;
 
-const droneIcon = new Image();
-droneIcon.src = 'drone.png';
+        // Image Objects
+        const droneImage = new Image();
+        droneImage.src = 'drone.png';
+        const satelliteImage = new Image();
+        satelliteImage.src = 'satellite.png';
 
-const satelliteIcon = new Image();
-satelliteIcon.src = 'satellite.png';
+        // Flags to ensure images are loaded before drawing
+        let droneImageLoaded = false;
+        let satelliteImageLoaded = false;
 
-        function drawCircle(x, y, radius, color) {
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, 2 * Math.PI);
-            ctx.strokeStyle = color;
-            ctx.stroke();
+        droneImage.onload = () => {
+            droneImageLoaded = true;
+            updateVisualization();
+        };
+
+        satelliteImage.onload = () => {
+            satelliteImageLoaded = true;
+            updateVisualization();
+        };
+
+        // Update canvas dimensions based on scale and range
+        function updateCanvasDimensions() {
+            canvas.width = 800;
+            canvas.height = 800;
+            offsetX = canvas.width / 2;
+            offsetY = canvas.height / 2;
+            scale = canvas.width / 100; // Recalculate scale in case of window resize
         }
 
-        function drawPoint(x, y, color, isIcon = false, label = '') {
-            if (isIcon) {
-                const icon = color === 'black' ? droneIcon : satelliteIcon;
-                ctx.save();
-                ctx.fillStyle = color;
-                ctx.translate(x, y);
-                ctx.drawImage(icon, -12, -12, 24, 24);
-                ctx.restore();
-
-                // Add label with coordinates
-                ctx.font = '12px Arial';
-                ctx.fillStyle = color;
-                ctx.textAlign = 'center';
-                const actualX = Math.round((x - offsetX) / scale);
-                const actualY = Math.round(-(y - offsetY) / scale);
-                ctx.fillText(`${label} (${actualX}, ${actualY})`, x, y + 25);
-            } else {
-                ctx.beginPath();
-                ctx.arc(x, y, 5, 0, 2 * Math.PI);
-                ctx.fillStyle = color;
-                ctx.fill();
-            }
-        }
-
-        function drawGrid() {
+        // Draw grid and axes
+        function drawGridAndAxes() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Draw grid
             ctx.beginPath();
-            ctx.strokeStyle = '#ddd';
+            ctx.strokeStyle = '#eee';
             ctx.lineWidth = 1;
-
-            const step = 50 * scale;
-            for (let x = offsetX % step; x < canvas.width; x += step) {
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, canvas.height);
+            for(let x=-50; x<=50; x++) {
+                ctx.moveTo(offsetX + x * scale, 0);
+                ctx.lineTo(offsetX + x * scale, canvas.height);
             }
-            for (let y = offsetY % step; y < canvas.height; y += step) {
-                ctx.moveTo(0, y);
-                ctx.lineTo(canvas.width, y);
+            for(let y=-50; y<=50; y++) {
+                ctx.moveTo(0, offsetY - y * scale);
+                ctx.lineTo(canvas.width, offsetY - y * scale);
             }
             ctx.stroke();
-        }
 
-        function drawAxis() {
+            // Draw axes
             ctx.beginPath();
-            ctx.strokeStyle = '#999';
+            ctx.strokeStyle = '#000';
             ctx.lineWidth = 2;
-
-    // Calculate center positions considering offsets
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-
-            // Draw x and y axes
-            ctx.moveTo(0, centerY);
-            ctx.lineTo(canvas.width, centerY);
-            ctx.moveTo(centerX, 0);
-            ctx.lineTo(centerX, canvas.height);
-
+            // X-axis
+            ctx.moveTo(0, offsetY);
+            ctx.lineTo(canvas.width, offsetY);
+            // Y-axis
+            ctx.moveTo(offsetX, 0);
+            ctx.lineTo(offsetX, canvas.height);
             ctx.stroke();
 
             // Label axes
-            ctx.font = '12px Arial';
-            ctx.fillStyle = '#999';
-            const step = 100 * scale;
+            ctx.fillStyle = '#000';
+            ctx.font = '14px Arial';
+            // X-axis labels
+            for(let x=-50; x<=50; x+=10) {
+                if(x !==0){
+                    ctx.fillText(x, offsetX + x * scale - 10, offsetY + 20);
+                }
+            }
+            // Y-axis labels
+            for(let y=-50; y<=50; y+=10) {
+                if(y !==0){
+                    ctx.fillText(y, offsetX + 10, offsetY - y * scale + 5);
+                }
+            }
+            // Axis titles
+            ctx.fillText('X', canvas.width - 15, offsetY + 15);
+            ctx.fillText('Y', offsetX + 15, 15);
+        }
 
-            // Label X-axes
-            for (let i = -1000; i <= 1000; i += 100) {
-                const x = centerX + i * scale;
-                if (x >= 0 && x <= canvas.width) {
-                   ctx.fillText(i, x, centerY + 15); // Position slightly below the axis
-               }
-           }
+        // Draw satellites and drone circles
+        function drawCircles() {
+            satellites.forEach(sat => {
+                // Draw circle
+                ctx.beginPath();
+                ctx.arc(sat.x * scale + offsetX, offsetY - sat.y * scale, sat.r * scale, 0, 2 * Math.PI);
+                ctx.strokeStyle = sat.color;
+                ctx.stroke();
 
-            // Label Y-axes
-           for (let i = -1000; i <= 1000; i += 100) {
-               const y = centerY - i * scale;
-               if (y >= 0 && y <= canvas.height) {
-               ctx.fillText(i, centerX + 5, y); // Position slightly to the right of the axis
-               }
+                // Draw satellite image if loaded
+                if (satelliteImageLoaded) {
+                    const imgWidth = 30;
+                    const imgHeight = 30;
+                    ctx.drawImage(satelliteImage, sat.x * scale + offsetX - imgWidth / 2, offsetY - sat.y * scale - imgHeight / 2, imgWidth, imgHeight);
+                } else {
+                    // Fallback: Draw satellite point if image not loaded
+                    ctx.beginPath();
+                    ctx.arc(sat.x * scale + offsetX, offsetY - sat.y * scale, 5, 0, 2 * Math.PI);
+                    ctx.fillStyle = sat.color;
+                    ctx.fill();
+                }
+
+                // Label satellite with coordinates and radius
+                ctx.fillStyle = sat.color;
+                ctx.font = '12px Arial';
+                const label = `Sat ${sat.id} (${sat.x}, ${sat.y}), r=${sat.r.toFixed(2)}`;
+                ctx.fillText(label, sat.x * scale + offsetX + 10, offsetY - sat.y * scale - 10);
+            });
+
+            // Draw thick black dotted lines from Drone to axes
+            ctx.beginPath();
+            ctx.setLineDash([10, 10]);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'black';
+            // Vertical line to y-axis
+            ctx.moveTo(droneX * scale + offsetX, offsetY - droneY * scale);
+            ctx.lineTo(droneX * scale + offsetX, offsetY);
+            // Horizontal line to x-axis
+            ctx.moveTo(droneX * scale + offsetX, offsetY - droneY * scale);
+            ctx.lineTo(offsetX, offsetY - droneY * scale);
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dash
+
+            // Draw drone image if loaded
+            if (droneImageLoaded) {
+                const imgWidth = 50;
+                const imgHeight = 50;
+                ctx.drawImage(droneImage, droneX * scale + offsetX - imgWidth / 2, offsetY - droneY * scale - imgHeight / 2, imgWidth, imgHeight);
+            } else {
+                // Fallback: Draw drone point if image not loaded
+                ctx.beginPath();
+                ctx.arc(droneX * scale + offsetX, offsetY - droneY * scale, 7, 0, 2 * Math.PI);
+                ctx.fillStyle = 'black';
+                ctx.fill();
             }
 
-            // Label x and y axes
-            ctx.fillText('X', canvas.width - 20, centerY - 5);
-            ctx.fillText('Y', centerX + 5, 15);
+            // Draw yellow background rectangle for drone label
+            const label = `D (${droneX.toFixed(2)}, ${droneY.toFixed(2)})`;
+            ctx.font = 'bold 14px Arial';
+            const textWidth = ctx.measureText(label).width;
+            const padding = 4;
+            ctx.fillStyle = 'yellow';
+            ctx.fillRect(droneX * scale + offsetX + 10 - padding, offsetY - droneY * scale - 25 - padding, textWidth + padding*2, 20 + padding*2);
+
+            // Draw drone label
+            ctx.fillStyle = 'black';
+            ctx.fillText(label, droneX * scale + offsetX + 10, offsetY - droneY * scale - 10);
         }
 
-        function drawRightTriangle(sat, droneX, droneY) {
-            const satX = sat.x * scale + offsetX;
-            const satY = -sat.y * scale + offsetY;
-            const droneScaledX = droneX * scale + offsetX;
-            const droneScaledY = -droneY * scale + offsetY;
+        // Update satellite radii based on drone position
+        function updateSatelliteRadii() {
+            satellites.forEach(sat => {
+                const dx = sat.x - droneX;
+                const dy = sat.y - droneY;
+                sat.r = Math.sqrt(dx * dx + dy * dy);
+                // Update input fields
+                document.getElementById(`sat${sat.id}r`).value = sat.r.toFixed(2);
 
-            ctx.beginPath();
-            ctx.moveTo(satX, satY);
-            ctx.lineTo(droneScaledX, droneScaledY);
-            ctx.lineTo(droneScaledX, satY);
-            ctx.lineTo(satX, satY);
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.stroke();
-
-            // Label the sides
-            const dx = Math.abs(sat.x - droneX);
-            const dy = Math.abs(sat.y - droneY);
-            const hypotenuse = Math.sqrt(dx * dx + dy * dy);
-
-            ctx.font = '12px Arial';
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-            ctx.fillText(`dx: ${dx.toFixed(2)}`, (satX + droneScaledX) / 2, satY + 15);
-            ctx.fillText(`dy: ${dy.toFixed(2)}`, droneScaledX + 5, (satY + droneScaledY) / 2);
-            ctx.fillText(`r: ${hypotenuse.toFixed(2)}`, (satX + droneScaledX) / 2 - 20, (satY + droneScaledY) / 2 - 5);
+                // Update triangle info (Removed since triangles-box is removed)
+            });
         }
 
-        function updateTrilateration() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const sat1 = {
-                x: parseInt(document.getElementById('sat1x').value),
-                y: parseInt(document.getElementById('sat1y').value),
-                r: parseInt(document.getElementById('sat1r').value)
-            };
-            const sat2 = {
-                x: parseInt(document.getElementById('sat2x').value),
-                y: parseInt(document.getElementById('sat2y').value),
-                r: parseInt(document.getElementById('sat2r').value)
-            };
-            const sat3 = {
-                x: parseInt(document.getElementById('sat3x').value),
-                y: parseInt(document.getElementById('sat3y').value),
-                r: parseInt(document.getElementById('sat3r').value)
-            };
-            const sat4 = {
-                x: parseInt(document.getElementById('sat4x').value),
-                y: parseInt(document.getElementById('sat4y').value),
-                r: parseInt(document.getElementById('sat4r').value)
-            };
-
-            // Calculate time intervals
-            const t1 = (sat1.r * 1000) / c * 1000; // Convert to milliseconds
-            const t2 = (sat2.r * 1000) / c * 1000;
-            const t3 = (sat3.r * 1000) / c * 1000;
-            const t4 = (sat4.r * 1000) / c * 1000;
-
-            // Calculate the bounding box
-            const minX = Math.min(sat1.x - sat1.r, sat2.x - sat2.r, sat3.x - sat3.r, sat4.x - sat4.r, -1000);
-            const maxX = Math.max(sat1.x + sat1.r, sat2.x + sat2.r, sat3.x + sat3.r, sat4.x + sat4.r, 1000);
-            const minY = Math.min(sat1.y - sat1.r, sat2.y - sat2.r, sat3.y - sat3.r, sat4.y - sat4.r, -1000);
-            const maxY = Math.max(sat1.y + sat1.r, sat2.y + sat2.r, sat3.y + sat3.r, sat4.y + sat4.r, 1000);
-
-            // Calculate the scale and offset
-            const boundWidth = maxX - minX;
-            const boundHeight = maxY - minY;
-            scale = Math.min(canvas.width / boundWidth, canvas.height / boundHeight) * 0.9;
-            offsetX = (canvas.width - boundWidth * scale) / 2 - minX * scale;
-            offsetY = (canvas.height - boundHeight * scale) / 2 + maxY * scale;
-
-            drawGrid();
-            drawAxis();
-
-            drawCircle(sat1.x * scale + offsetX, -sat1.y * scale + offsetY, sat1.r * scale, 'red');
-            drawCircle(sat2.x * scale + offsetX, -sat2.y * scale + offsetY, sat2.r * scale, 'green');
-            drawCircle(sat3.x * scale + offsetX, -sat3.y * scale + offsetY, sat3.r * scale, 'blue');
-            drawCircle(sat4.x * scale + offsetX, -sat4.y * scale + offsetY, sat4.r * scale, 'purple');
-
-            drawPoint(sat1.x * scale + offsetX, -sat1.y * scale + offsetY, 'red', true, 'Satellite 1');
-            drawPoint(sat2.x * scale + offsetX, -sat2.y * scale + offsetY, 'green', true, 'Satellite 2');
-            drawPoint(sat3.x * scale + offsetX, -sat3.y * scale + offsetY, 'blue', true, 'Satellite 3');
-            drawPoint(sat4.x * scale + offsetX, -sat4.y * scale + offsetY, 'purple', true, 'Satellite 4');
-
-const A = 2 * sat2.x - 2 * sat1.x;
-const B = 2 * sat2.y - 2 * sat1.y;
-const C = sat1.r ** 2 - sat2.r ** 2 - sat1.x ** 2 + sat2.x ** 2 - sat1.y ** 2 + sat2.y ** 2;
-
-const D = 2 * sat3.x - 2 * sat2.x;
-const E = 2 * sat3.y - 2 * sat2.y;
-const F = sat2.r ** 2 - sat3.r ** 2 - sat2.x ** 2 + sat3.x ** 2 - sat2.y ** 2 + sat3.y ** 2;
-
-const G = 2 * sat4.x - 2 * sat3.x;
-const H = 2 * sat4.y - 2 * sat3.y;
-const I = sat3.r ** 2 - sat4.r ** 2 - sat3.x ** 2 + sat4.x ** 2 - sat3.y ** 2 + sat4.y ** 2;
-
-// Use the first three equations to find droneX and droneY
-droneX = (C * E - F * B) / (E * A - B * D);
-droneY = (C * D - A * F) / (B * D - A * E);
-
-// Now adjust to include the fourth satellite
-const droneZ = (I * B - C * H) / (H * A - B * G);
-
-// Final drone position
-dronePosition = { x: droneX, y: droneY, z: droneZ };
-
-document.getElementById('sat1xCoord').textContent = sat1.x;
-document.getElementById('sat1yCoord').textContent = sat1.y;
-document.getElementById('sat2xCoord').textContent = sat2.x;
-document.getElementById('sat2yCoord').textContent = sat2.y;
-document.getElementById('sat3xCoord').textContent = sat3.x;
-document.getElementById('sat3yCoord').textContent = sat3.y;
-document.getElementById('sat4xCoord').textContent = sat4.x;
-document.getElementById('sat4yCoord').textContent = sat4.y;
-
-document.getElementById('sat1dx').textContent = Math.abs(sat1.x - droneX).toFixed(2);
-document.getElementById('sat1dy').textContent = Math.abs(sat1.y - droneY).toFixed(2);
-document.getElementById('sat2dx').textContent = Math.abs(sat2.x - droneX).toFixed(2);
-document.getElementById('sat2dy').textContent = Math.abs(sat2.y - droneY).toFixed(2);
-document.getElementById('sat3dx').textContent = Math.abs(sat3.x - droneX).toFixed(2);
-document.getElementById('sat3dy').textContent = Math.abs(sat3.y - droneY).toFixed(2);
-document.getElementById('sat4dx').textContent = Math.abs(sat4.x - droneX).toFixed(2);
-document.getElementById('sat4dy').textContent = Math.abs(sat4.y - droneY).toFixed(2);
-
-drawPoint(droneX * scale + offsetX, -droneY * scale + offsetY, 'black', true, 'Drone');
-
-  if (showTriangle1) {
-    drawRightTriangle(sat1, droneX, droneY);
-}
-if (showTriangle2) {
-    drawRightTriangle(sat2, droneX, droneY);
-}
-if (showTriangle3) {
-    drawRightTriangle(sat3, droneX, droneY);
-}
-if (showTriangle4) {
-    drawRightTriangle(sat4, droneX, droneY);
-}
-
-                  // Display calculation steps
-            const steps = document.getElementById('calculation-steps');
-            steps.innerHTML = `
-            `;
+        // Draw triangles on the canvas based on visibility
+        function drawTrianglesOnCanvas() {
+            satellites.forEach(sat => {
+                if ((sat.id === 1 && showTriangle1) || (sat.id === 2 && showTriangle2) || (sat.id === 3 && showTriangle3)) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = sat.color;
+                    ctx.fillStyle = hexToRGBA(sat.color, 0.2); // Changed opacity to 0.8
+                    ctx.lineWidth = 2;
+                    // Define triangle points: Satellite, Drone, Projection on respective axis
+                    // For right-angle triangle, projection on X and Y axes
+                    const projX = droneX * scale + offsetX;
+                    const projY = offsetY - sat.y * scale;
+                    const projYDrone = offsetY - droneY * scale;
+                    if (sat.id === 1 || sat.id === 2 || sat.id === 3) { // All satellites use the same projection method
+                        ctx.moveTo(sat.x * scale + offsetX, offsetY - sat.y * scale);
+                        ctx.lineTo(droneX * scale + offsetX, offsetY - sat.y * scale);
+                        ctx.lineTo(droneX * scale + offsetX, offsetY - droneY * scale);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+                }
+            });
         }
 
-        function adjustSatellites(newX, newY) {
-            const sat1 = {
-                x: parseInt(document.getElementById('sat1x').value),
-                y: parseInt(document.getElementById('sat1y').value),
-                r: parseInt(document.getElementById('sat1r').value)
-            };
-            const sat2 = {
-                x: parseInt(document.getElementById('sat2x').value),
-                y: parseInt(document.getElementById('sat2y').value),
-                r: parseInt(document.getElementById('sat2r').value)
-            };
-            const sat3 = {
-                x: parseInt(document.getElementById('sat3x').value),
-                y: parseInt(document.getElementById('sat3y').value),
-                r: parseInt(document.getElementById('sat3r').value)
-            };
-            const sat4 = {
-                x: parseInt(document.getElementById('sat4x').value),
-                y: parseInt(document.getElementById('sat4y').value),
-                r: parseInt(document.getElementById('sat4r').value)
-            };
+        // Helper function to convert hex color to RGBA
+        function hexToRGBA(color, alpha) {
+            let hex;
+            if(color === 'red') hex = '#FF0000';
+            else if(color === 'green') hex = '#008000';
+            else if(color === 'blue') hex = '#0000FF';
+            else hex = '#000000';
+            const r = parseInt(hex.slice(1,3), 16);
+            const g = parseInt(hex.slice(3,5), 16);
+            const b = parseInt(hex.slice(5,7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
 
-            const actualX = (newX - offsetX) / scale;
-            const actualY = -(newY - offsetY) / scale;
+        // Update equations based on satellite positions and radii
+        function updateEquations() {
+            const equationsDiv = document.getElementById('equations');
+            equationsDiv.innerHTML = '';
+            satellites.forEach(sat => {
+                const eq = `(x - ${sat.x})² + (y - ${sat.y})² = ${sat.r.toFixed(2)}²`;
+                const equation = document.createElement('div');
+                equation.textContent = eq;
+                equationsDiv.appendChild(equation);
+            });
+        }
 
-            document.getElementById('sat1r').value = Math.round(Math.sqrt((sat1.x - actualX) ** 2 + (sat1.y - actualY) ** 2));
-            document.getElementById('sat2r').value = Math.round(Math.sqrt((sat2.x - actualX) ** 2 + (sat2.y - actualY) ** 2));
-            document.getElementById('sat3r').value = Math.round(Math.sqrt((sat3.x - actualX) ** 2 + (sat3.y - actualY) ** 2));
-            document.getElementById('sat4r').value = Math.round(Math.sqrt((sat4.x - actualX) ** 2 + (sat4.y - actualY) ** 2));
+        // Update step-by-step solution with detailed step 4
+        function updateSteps() {
+            const stepsDiv = document.getElementById('steps');
+            stepsDiv.innerHTML = ''; // Reset steps
 
-            updateTrilateration();
+            // Trilateration steps based on current satellite positions and radii
+            if (satellites.length >= 3) {
+                const sat1 = satellites[0];
+                const sat2 = satellites[1];
+                const sat3 = satellites[2];
+
+                // Step 1: Write down the equations
+                let step1 = document.createElement('div');
+                step1.className = 'step';
+                step1.innerHTML = `<strong>Step 1:</strong> Write down the trilateration equations for each satellite:`;
+                stepsDiv.appendChild(step1);
+
+                [sat1, sat2, sat3].forEach(sat => {
+                    let eq = `(x - ${sat.x})² + (y - ${sat.y})² = ${sat.r.toFixed(2)}²`;
+                    let eqDiv = document.createElement('div');
+                    eqDiv.textContent = eq;
+                    stepsDiv.appendChild(eqDiv);
+                });
+
+                // Step 2: Subtract first equation from second to eliminate squared terms
+                let step2 = document.createElement('div');
+                step2.className = 'step';
+                step2.innerHTML = `<strong>Step 2:</strong> Subtract the equation of Satellite 1 from Satellite 2 to eliminate squared terms:`;
+                stepsDiv.appendChild(step2);
+
+                let eqStep2 = `(x - ${sat2.x})² + (y - ${sat2.y})² - [(x - ${sat1.x})² + (y - ${sat1.y})²] = ${sat2.r.toFixed(2)}² - ${sat1.r.toFixed(2)}²`;
+                let eqStep2Div = document.createElement('div');
+                eqStep2Div.textContent = eqStep2;
+                stepsDiv.appendChild(eqStep2Div);
+
+                // Simplify Step 2
+                let simplStep2 = document.createElement('div');
+                simplStep2.className = 'step';
+                simplStep2.innerHTML = `<strong>Simplify:</strong>`;
+                stepsDiv.appendChild(simplStep2);
+
+                const A1 = 2 * (sat2.x - sat1.x);
+                const B1 = 2 * (sat2.y - sat1.y);
+                const C1 = (Math.pow(sat2.x, 2) + Math.pow(sat2.y, 2) - Math.pow(sat1.x, 2) - Math.pow(sat1.y, 2) + Math.pow(sat1.r, 2) - Math.pow(sat2.r,2)).toFixed(2);
+
+                let simplEqStep2 = `${A1}x + ${B1}y = ${C1}`;
+                let simplEqStep2Div = document.createElement('div');
+                simplEqStep2Div.textContent = simplEqStep2;
+                stepsDiv.appendChild(simplEqStep2Div);
+
+                // Similarly for Satellite 3
+                let step3 = document.createElement('div');
+                step3.className = 'step';
+                step3.innerHTML = `<strong>Step 3:</strong> Subtract the equation of Satellite 2 from Satellite 3:`;
+                stepsDiv.appendChild(step3);
+
+                let eqStep3 = `(x - ${sat3.x})² + (y - ${sat3.y})² - [(x - ${sat2.x})² + (y - ${sat2.y})²] = ${sat3.r.toFixed(2)}² - ${sat2.r.toFixed(2)}²`;
+                let eqStep3Div = document.createElement('div');
+                eqStep3Div.textContent = eqStep3;
+                stepsDiv.appendChild(eqStep3Div);
+
+                // Simplify Step 3
+                let simplStep3 = document.createElement('div');
+                simplStep3.className = 'step';
+                simplStep3.innerHTML = `<strong>Simplify:</strong>`;
+                stepsDiv.appendChild(simplStep3);
+
+                const A2 = 2 * (sat3.x - sat2.x);
+                const B2 = 2 * (sat3.y - sat2.y);
+                const C2 = (Math.pow(sat3.x, 2) + Math.pow(sat3.y, 2) - Math.pow(sat2.x, 2) - Math.pow(sat2.y, 2) + Math.pow(sat2.r, 2) - Math.pow(sat3.r,2)).toFixed(2);
+
+                let simplEqStep3 = `${A2}x + ${B2}y = ${C2}`;
+                let simplEqStep3Div = document.createElement('div');
+                simplEqStep3Div.textContent = simplEqStep3;
+                stepsDiv.appendChild(simplEqStep3Div);
+
+                // Step 4: Solve the two linear equations to find x and y
+                let step4 = document.createElement('div');
+                step4.className = 'step';
+                step4.innerHTML = `<strong>Step 4:</strong> Solve the two linear equations to find the drone's coordinates (x, y).`;
+                stepsDiv.appendChild(step4);
+
+                // Detailed solving using elimination method
+                let detailedStep4 = document.createElement('div');
+                detailedStep4.innerHTML = `
+                    <p><strong>Equation 1:</strong> ${A1}x + ${B1}y = ${C1}</p>
+                    <p><strong>Equation 2:</strong> ${A2}x + ${B2}y = ${C2}</p>
+                    <p><strong>Objective:</strong> Eliminate one variable to solve for the other.</p>
+                    <p><strong>Step 4.1:</strong> Multiply Equation 1 by ${A2} and Equation 2 by ${A1}:</p>
+                    <p><strong>Equation 1 Multiplied:</strong> ${A2 * A1}x + ${A2 * B1}y = ${A2 * C1}</p>
+                    <p><strong>Equation 2 Multiplied:</strong> ${A1 * A2}x + ${A1 * B2}y = ${A1 * C2}</p>
+                    <p><strong>Step 4.2:</strong> Subtract Equation 2 from Equation 1 to eliminate x:</p>
+                    <p>${A2 * A1}x + ${A2 * B1}y - (${A1 * A2}x + ${A1 * B2}y) = ${A2 * C1} - ${A1 * C2}</p>
+                    <p><strong>Simplified:</strong> ${A2 * B1 - A1 * B2}y = ${A2 * C1 - A1 * C2}</p>
+                `;
+                stepsDiv.appendChild(detailedStep4);
+
+                // Compute y
+                const yNumerator = (A2 * C1 - A1 * C2).toFixed(2);
+                const yCoefficient = (A2 * B1 - A1 * B2).toFixed(2);
+                const y = (yNumerator / yCoefficient).toFixed(2);
+                let solveY = document.createElement('div');
+                solveY.innerHTML = `<p><strong>Step 4.3:</strong> Solve for y:</p><p>y = ${yNumerator} / ${yCoefficient} = ${y}</p>`;
+                stepsDiv.appendChild(solveY);
+
+                // Solve for x using Equation 1
+                const x = ((C1 - B1 * y) / A1).toFixed(2);
+                let solveX = document.createElement('div');
+                solveX.innerHTML = `<p><strong>Step 4.4:</strong> Substitute y into Equation 1 to solve for x:</p>
+                <p>${A1}x + ${B1}(${y}) = ${C1}</p>
+                <p>${A1}x = ${C1} - ${B1 * y} = ${(C1 - B1 * y).toFixed(2)}</p>
+                <p>x = (${(C1 - B1 * y).toFixed(2)}) / ${A1} = ${x}</p>`;
+                stepsDiv.appendChild(solveX);
+
+                // Step 5: Present the solution without "km"
+                let step5 = document.createElement('div');
+                step5.className = 'step';
+                step5.innerHTML = `<strong>Step 5:</strong> The solution is: <strong>x = ${x}</strong>, <strong>y = ${y}</strong>`;
+                stepsDiv.appendChild(step5);
+            }
+        }
+
+        // Update the canvas and right panel
+        function updateVisualization() {
+            drawGridAndAxes();
+            drawCircles();
+            drawTrianglesOnCanvas(); // Draw triangles if enabled
+            updateEquations();
+            updateSteps();
+        }
+
+        // Dragging functionality with mouse and touch support
+        function getEventPosition(e) {
+            if (e.touches) {
+                return {
+                    x: e.touches[0].clientX,
+                    y: e.touches[0].clientY
+                };
+            } else {
+                return {
+                    x: e.clientX,
+                    y: e.clientY
+                };
+            }
+        }
+
+        function isDroneClicked(x, y) {
+            // Check if the click is near the drone point/image
+            const distance = Math.sqrt(Math.pow(x - (droneX * scale + offsetX), 2) + Math.pow(y - (offsetY - droneY * scale), 2));
+            return distance <= 15; // Increased radius for easier dragging with image
         }
 
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-            
-            if (Math.sqrt((x - (droneX * scale + offsetX)) ** 2 + (y - (-droneY * scale + offsetY)) ** 2) < 15) {
+            if (isDroneClicked(x, y)) {
                 isDragging = true;
+                canvas.style.cursor = 'grabbing';
+            }
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const pos = getEventPosition(e);
+            const x = pos.x - rect.left;
+            const y = pos.y - rect.top;
+            if (isDroneClicked(x, y)) {
+                isDragging = true;
+                canvas.style.cursor = 'grabbing';
             }
         });
 
@@ -451,38 +579,123 @@ if (showTriangle4) {
                 const rect = canvas.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
-                adjustSatellites(x, y);
+
+                // Convert canvas coordinates back to droneX and droneY
+                const newX = (x - offsetX) / scale;
+                const newY = (offsetY - y) / scale;
+
+                // Clamp values within -50 to 50 km
+                droneX = Math.max(-50, Math.min(50, newX));
+                droneY = Math.max(-50, Math.min(50, newY));
+
+                // Update satellite radii based on new drone position
+                updateSatelliteRadii();
+
+                updateVisualization();
             }
         });
 
+        canvas.addEventListener('touchmove', (e) => {
+            if (isDragging) {
+                e.preventDefault(); // Prevent scrolling
+                const rect = canvas.getBoundingClientRect();
+                const pos = getEventPosition(e);
+                const x = pos.x - rect.left;
+                const y = pos.y - rect.top;
+
+                // Convert canvas coordinates back to droneX and droneY
+                const newX = (x - offsetX) / scale;
+                const newY = (offsetY - y) / scale;
+
+                // Clamp values within -50 to 50 km
+                droneX = Math.max(-50, Math.min(50, newX));
+                droneY = Math.max(-50, Math.min(50, newY));
+
+                // Update satellite radii based on new drone position
+                updateSatelliteRadii();
+
+                updateVisualization();
+            }
+        }, { passive: false });
+
         canvas.addEventListener('mouseup', () => {
-            isDragging = false;
+            if (isDragging) {
+                isDragging = false;
+                canvas.style.cursor = 'grab';
+            }
         });
 
         canvas.addEventListener('mouseleave', () => {
-            isDragging = false;
+            if (isDragging) {
+                isDragging = false;
+                canvas.style.cursor = 'grab';
+            }
         });
 
-document.getElementById('toggleTriangle1').addEventListener('click', () => {
-    showTriangle1 = !showTriangle1;
-    updateTrilateration();
-});
+        canvas.addEventListener('touchend', () => {
+            if (isDragging) {
+                isDragging = false;
+                canvas.style.cursor = 'grab';
+            }
+        });
 
-document.getElementById('toggleTriangle2').addEventListener('click', () => {
-    showTriangle2 = !showTriangle2;
-    updateTrilateration();
-});
+        // Initialize the visualization
+        function initialize() {
+            updateCanvasDimensions();
+            updateSatelliteRadii(); // Calculate initial radii based on default drone position
+            updateVisualization();
 
-document.getElementById('toggleTriangle3').addEventListener('click', () => {
-    showTriangle3 = !showTriangle3;
-    updateTrilateration();
-});
-document.getElementById('toggleTriangle4').addEventListener('click', () => {
-    showTriangle4 = !showTriangle4;
-    updateTrilateration();
-});
+            // Add event listeners for triangle buttons
+            const triangleButtons = document.querySelectorAll('.triangleButton');
+            triangleButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const satId = parseInt(button.getAttribute('data-sat'));
+                    switch(satId) {
+                        case 1:
+                            showTriangle1 = !showTriangle1;
+                            button.style.backgroundColor = showTriangle1 ? 'lightcoral' : '';
+                            break;
+                        case 2:
+                            showTriangle2 = !showTriangle2;
+                            button.style.backgroundColor = showTriangle2 ? 'lightgreen' : '';
+                            break;
+                        case 3:
+                            showTriangle3 = !showTriangle3;
+                            button.style.backgroundColor = showTriangle3 ? 'lightblue' : '';
+                            break;
+                    }
+                    updateVisualization();
+                });
+            });
 
-        updateTrilateration();
+            // Add event listener for reset button
+            document.getElementById('resetButton').addEventListener('click', () => {
+                // Reset drone position to initial values
+                droneX = 21;
+                droneY = 20;
+                // Reset satellite positions if they were changeable (currently they are static)
+                // Reset satellite radii
+                updateSatelliteRadii();
+                // Hide all triangles
+                showTriangle1 = false;
+                showTriangle2 = false;
+                showTriangle3 = false;
+                // Reset triangle buttons' background color
+                document.querySelectorAll('.triangleButton').forEach(button => {
+                    button.style.backgroundColor = '';
+                });
+                updateVisualization();
+            });
+        }
+
+        // Initial Setup
+        initialize();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            updateCanvasDimensions();
+            updateVisualization();
+        });
     </script>
 </body>
 </html>
