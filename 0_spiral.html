@@ -57,7 +57,7 @@
 <body>
     <div class="left-side">
         <table>
-       <h1 style="text-align: left; font-size: 24px;">Spiral Navigation</h1>
+            <h1 style="text-align: left; font-size: 24px;">Spiral Navigation</h1>
             <tr>
                 <th>Parameter</th>
                 <th>Value</th>
@@ -65,25 +65,25 @@
             <tr>
                 <td><strong>Number of sides (n)</strong></td>
                 <td>
-                    <input type="number" id="sides" min="3" max="25" value="5">
+                    <input type="number" id="sides" min="3" max="25" value="3">
                     <div class="range-info">Range: 3-25</div>
                 </td>
             </tr>
             <tr>
                 <td><strong>Exterior angle (ext)</strong></td>
-                <td><span id="extAngle">72</span>°</td>
+                <td><span id="extAngle">120</span>°</td>
             </tr>
             <tr>
                 <td><strong>Forward distance (d)</strong></td>
                 <td>
-                    <input type="number" id="distance" min="10" max="100" value="50">
+                    <input type="number" id="distance" min="10" max="100" value="20">
                     <div class="range-info">Range: 10-100</div>
                 </td>
             </tr>
             <tr>
                 <td><strong>Increment (x)</strong></td>
                 <td>
-                    <input type="number" id="increment" min="2" max="20" value="10">
+                    <input type="number" id="increment" min="2" max="20" value="5">
                     <div class="range-info">Range: 2-20</div>
                 </td>
             </tr>
@@ -101,8 +101,8 @@
             <button id="pauseResume">Pause</button>
             <button id="reset">Reset</button>
         </div>
-        <input type="range" id="speedControl" min="1" max="10" value="3">
-        <label for="speedControl">Speed: <span id="speedValue">3</span></label>
+        <input type="range" id="speedControl" min="1" max="10" value="2">
+        <label for="speedControl">Speed: <span id="speedValue">2</span></label>
     </div>
     <div class="right-side">
         <canvas id="droneCanvas"></canvas>
@@ -186,37 +186,39 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawGrid();
 
-            ctx.beginPath();
-            ctx.moveTo(offsetX + path[0].x * scale, offsetY - path[0].y * scale);
-            for (let i = 1; i < path.length; i++) {
-                ctx.lineTo(offsetX + path[i].x * scale, offsetY - path[i].y * scale);
-            }
-            ctx.strokeStyle = 'blue';
-            ctx.stroke();
-
-            // Draw spots
-            for (let spot of path) {
+            if (path.length > 1) {
                 ctx.beginPath();
-                ctx.arc(offsetX + spot.x * scale, offsetY - spot.y * scale, 3, 0, 2 * Math.PI);
+                ctx.moveTo(offsetX + path[0].x * scale, offsetY - path[0].y * scale);
+                for (let i = 1; i < path.length; i++) {
+                    ctx.lineTo(offsetX + path[i].x * scale, offsetY - path[i].y * scale);
+                }
+                ctx.strokeStyle = 'blue';
+                ctx.stroke();
+
+                // Draw spots
+                for (let spot of path) {
+                    ctx.beginPath();
+                    ctx.arc(offsetX + spot.x * scale, offsetY - spot.y * scale, 3, 0, 2 * Math.PI);
+                    ctx.fillStyle = 'black';
+                    ctx.fill();
+                }
+
+                // Draw return-to-home path
+                ctx.beginPath();
+                ctx.moveTo(offsetX + path[path.length - 1].x * scale, offsetY - path[path.length - 1].y * scale);
+                ctx.lineTo(offsetX, offsetY);
+                ctx.setLineDash([5, 5]);
+                ctx.strokeStyle = 'red';
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Calculate and display return-to-home distance
+                const lastPoint = path[path.length - 1];
+                const returnDistance = Math.sqrt(lastPoint.x * lastPoint.x + lastPoint.y * lastPoint.y).toFixed(2);
                 ctx.fillStyle = 'black';
-                ctx.fill();
+                ctx.font = '20px Arial';
+                ctx.fillText(`Return distance: ${returnDistance}`, 10, 20);
             }
-
-            // Draw return-to-home path
-            ctx.beginPath();
-            ctx.moveTo(offsetX + path[path.length - 1].x * scale, offsetY - path[path.length - 1].y * scale);
-            ctx.lineTo(offsetX, offsetY);
-            ctx.setLineDash([5, 5]);
-            ctx.strokeStyle = 'red';
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // Calculate and display return-to-home distance
-            const lastPoint = path[path.length - 1];
-            const returnDistance = Math.sqrt(lastPoint.x * lastPoint.x + lastPoint.y * lastPoint.y).toFixed(2);
-            ctx.fillStyle = 'black';
-            ctx.font = '20px Arial';
-            ctx.fillText(`Return distance: ${returnDistance}`, 10, 20);
 
             if (!isAnimating) {
                 drawDrone(0, 0, 90);
@@ -374,9 +376,18 @@
             document.getElementById('speedValue').textContent = this.value;
         });
 
-        updateExtAngle();
-        drawGrid();
-        drawDrone(0, 0, 90);
+        // Initialize the canvas on page load
+        window.onload = () => {
+            updateExtAngle();
+            // Set canvas size based on default values to ensure grid is visible
+            const defaultPath = []; // No path initially
+            canvas.width = canvas.height = Math.min(600, window.innerWidth * 0.5);
+            scale = canvas.width / 200; // Arbitrary scale for grid
+            offsetX = canvas.width / 2;
+            offsetY = canvas.height / 2;
+            drawGrid();
+            drawDrone(0, 0, 90);
+        };
     </script>
 </body>
 </html>
