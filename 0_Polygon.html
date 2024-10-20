@@ -34,15 +34,17 @@
         }
         h1 {
             text-align: left;
+            font-size: 24px;
         }
     </style>
 </head>
 <body>
     <div class="left-panel">
-        <h1 style="text-align: left; font-size: 24px;">Polygonal Flight</h1>
+        <h1>Polygonal Flight</h1>
         <div class="controls">
             <label for="sides">Number of sides (n = 3 - 25): </label>
-            <input type="number" id="sides" min="3" max="25" value="4" onchange="initSimulation()" /><p></p>
+            <!-- Changed default value from 4 to 3 -->
+            <input type="number" id="sides" min="3" max="25" value="3" onchange="initSimulation()" /><p></p>
             <label for="length">Side length (cm): </label>
             <input type="number" id="length" value="100" onchange="initSimulation()" /><p></p>
             <button onclick="startDrone()">Start</button>
@@ -117,15 +119,15 @@
             document.getElementById('exterior-angle').innerText = `Exterior angle: ${exteriorAngle.toFixed(2)}°`;
             document.getElementById('central-angle').innerText = `Central angle: ${centralAngle.toFixed(2)}°`;
 
-            // Calculate vertices
-            calculateVertices();
-
             // Setup canvas
             const canvas = document.getElementById('canvas');
             ctx = canvas.getContext('2d');
             width = canvas.width;
             height = canvas.height;
             ctx.clearRect(0, 0, width, height);
+
+            // Calculate vertices after setting width and height
+            calculateVertices();
 
             // Draw the polygon and its triangles
             drawPolygon();
@@ -317,7 +319,8 @@
         }
 
         function resetSimulation() {
-            document.getElementById('sides').value = 4;
+            // Changed default value from 4 to 3
+            document.getElementById('sides').value = 3;
             document.getElementById('length').value = 100;
             document.getElementById('speed').value = 5;
             if (interval) clearInterval(interval);
@@ -339,8 +342,8 @@
             drawDrone();
         }
 
-        // Initialize simulation with default values
-        initSimulation();
+        // Initialize simulation with default values on page load
+        window.onload = initSimulation;
     </script>
 </body>
 </html>
