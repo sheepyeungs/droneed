@@ -44,13 +44,28 @@
         .visualization-section {
             flex: 0 0 auto; /* Prevent shrinking */
             width: 65%; /* Keep at 120% width */
-            height: 500px;
+            height: 500px; /* Increased height to accommodate reference box */
             border: 2px solid #2c3e50;
             border-radius: 8px;
             background-color: #ecf0f1;
             position: relative;
             touch-action: none; /* Prevent default touch behaviors */
             margin-right: 20px; /* Space between visualization and controls */
+            padding: 10px; /* Added padding for better spacing */
+            display: flex;
+            flex-direction: column; /* Stack children vertically */
+            justify-content: space-between; /* Distribute space between canvas and reference box */
+        }
+
+        /* Reference section styling */
+        .reference-section {
+            padding: 5px;
+            border: 1px solid #bdc3c7;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            margin-top: 5px; /* Space above the reference box */
+            font-size: 14px;
+            color: #34495e;
         }
 
         /* Controls section */
@@ -160,6 +175,7 @@
                 width: 100%; /* Full width on smaller screens */
                 margin-right: 0;
                 margin-bottom: 20px;
+                height: auto; /* Allow height to adjust based on content */
             }
 
             .controls-section {
@@ -174,6 +190,13 @@
         <div class="visualization-section">
             <canvas id="visualization" width="920" height="500"></canvas>
             <div class="tooltip" id="tooltip"></div>
+            <!-- Reference Section -->
+            <div class="reference-section">
+                <h3>Reference:</h3>
+                <p><strong>AOV</strong> -- DJI Neo (118°), DJI Mini 2 (83°), DJI Mavic 2 Zoom (48-83°), DJI Phantom 4 (94°)</p>
+                <p><strong>Height</strong> -- Hong Kong Coliseum: 41 m, Hong Kong Central Library: 50 m, HSBC Building: 179 m, BOC Tower: 315 m</p>
+                <p><strong>FOV</strong> -- HK Stadium Pitch Area: 130 m x 74 m, HKCEC: 280 m x 200 m, Kai Tak Cruise Terminal: 625 m x 70 m</p>
+            </div>
         </div>
         <div class="controls-section">
             <!-- Table Section -->
@@ -394,6 +417,11 @@
             // Display altitude near the central line
             ctx.fillStyle = '#2980b9';
             ctx.fillText(`h = ${altitude.toFixed(1)}m`, drone.x + 10, (drone.y + origin.y) / 2 - 10);
+
+            // Display FOV near the base
+            ctx.fillStyle = '#16a085';
+            ctx.font = '14px Arial';
+            ctx.fillText(`FOV: ${clampedFov.toFixed(2)}m`, origin.x + clampedXOffset - 20, origin.y + 35);
         }
 
         function labelWithBackground(text, x, y, color = '#000') {
