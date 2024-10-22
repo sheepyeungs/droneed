@@ -37,35 +37,59 @@
             display: flex;
             flex-direction: column;
             align-items: flex-start; /* Align items to the left */
+            user-select: none; /* Prevent text selection in the entire control panel */
         }
 
         /* Status Box Above Control Panel */
         #statusBox {
             margin-bottom: 20px; /* Space between Status Box and GUI */
             background: rgba(0,0,0,0.7);
-            color: white;
+            color: gold;
             padding: 15px;
-            font-size: 18px;
+            font-size: 24px; /* Increased font size */
             border-radius: 8px;
             width: 300px;
             display: flex;
             flex-direction: column;
             gap: 10px; /* Added spacing between Force and Status */
             z-index: 1; /* Ensure it stays above other elements in controls-container */
+            user-select: none; /* Prevent text selection */
+        }
+
+        #statusBox div {
+            /* Ensure all child divs have the same font size and prevent text selection */
+            font-size: 24px;
+            user-select: none; /* Prevent text selection */
+        }
+
+        /* Informational Message Styling */
+        #relativeScaleMessage {
+            font-weight: bold;
+            color: white;
+            margin-top: 10px; /* Space above the message */
         }
 
         /* dat.GUI Styling */
         .dg.main { 
-            width: 400px !important; 
-            /* Removed absolute positioning to allow proper flex layout */
-            /* position: absolute; */
-            /* top: 0 !important; */
+            width: 450px !important; /* Adjusted width for longer sliders */
+            font-size: 18px; /* Increased font size */
+            user-select: none; /* Prevent text selection in dat.GUI */
         }
         .dg.main .close-button { display: none !important; }
-        .dg .property-value { display: none !important; }
+        .dg .property-value { 
+            display: inline-block !important; 
+            width: 30px !important; /* Reduced width to half (from 60px to 30px) */
+            text-align: right;
+            user-select: none; /* Prevent text selection */
+        }
+        .dg .property-name {
+            user-select: none; /* Prevent text selection */
+        }
         .dg .slider {
             position: relative;
             height: 12px; 
+            width: 400px; /* Lengthened the sliders */
+            user-select: none; /* Prevent text selection */
         }
         .dg .slider .slider-fg { height: 12px; }
         .dg .slider .ticks {
@@ -77,11 +101,13 @@
             display: flex;
             justify-content: space-between;
             pointer-events: none;
+            user-select: none; /* Prevent text selection */
         }
         .dg .slider .tick {
             width: 1px;
             height: 12px;
             background-color: #555;
+            user-select: none; /* Prevent text selection */
         }
         .dg .slider input[type=range] {
             -webkit-appearance: none;
@@ -93,6 +119,12 @@
             margin: 0;
             padding: 0;
             border: 1px solid #555; /* Added border for better visibility */
+            user-select: none; /* Prevent text selection */
+            -webkit-user-select: none; /* Prevent text selection in Safari */
+        }
+        /* Remove default tooltip on iOS by removing title attribute */
+        .dg .slider input[type=range]::-webkit-slider-runnable-track {
+            /* Additional styling if needed */
         }
         /* Default Thumb Styles */
         .dg .slider input[type=range]::-webkit-slider-thumb {
@@ -177,7 +209,10 @@
         <div id="statusBox">
             <div id="force">Force: N/A</div>
             <div id="statusMessage">Status: N/A</div>
+            <div id="hoverRotorSpeed">Hover Rotor Speed: N/A</div> <!-- New Element -->
         </div>
+        <!-- Informational Message Below Control Panel -->
+        <div id="relativeScaleMessage">All values are on relative scales and not real precise values.<p></p></div>
         <!-- dat.GUI will be injected here by dat.GUI library -->
     </div>
 
@@ -189,6 +224,12 @@
         let blinkInterval = 1000;
         let lastBlinkTime = 0;
         let isBlinkVisible = true;
+        let isHovering = false; // Flag for hovering
+        let hoverStartY = 0; // Base Y position when hover starts
+        let hoverTime = 0; // Time accumulator for hover animation
+        const hoverFrequency = 1; // Hz
+        const hoverAmplitude = 0.2; // Amplitude of hover oscillation
+
         let controls = {
             weight: 5,
             rotorSpeed: 0,
@@ -216,13 +257,24 @@
                 });
                 // Reset the takeoff flag
                 hasTakenOff = false;
+                // Reset hover variables
+                isHovering = false;
+                hoverTime = 0;
+                // Stop hovering sound if playing
+                if (hoveringAudio && !hoveringAudio.paused) {
+                    hoveringAudio.pause();
+                    hoveringAudio.currentTime = 0;
+                    isHoveringSoundPlayed = false;
+                }
             }
         };
         let gui;
         let rotorAudio;
         let djiAudio;
         let takeoffAudio;
+        let hoveringAudio; // New Audio
         let hasTakenOff = false; // Flag to ensure takeoff sound plays only once
+        let isHoveringSoundPlayed = false; // Flag to track if hovering sound has been played in current hover
 
         init();
         animate();
@@ -270,8 +322,14 @@
             takeoffAudio.volume = 0.5;
             takeoffAudio.preload = 'auto';
 
+            // Initialize Hovering Sound Effect
+            hoveringAudio = new Audio('hovering.mp3');
+            hoveringAudio.loop = false; // Play only once per hover
+            hoveringAudio.volume = 1.0; // Maximum volume (cannot exceed 1.0)
+            hoveringAudio.preload = 'auto';
+
             // Initialize GUI
-            gui = new dat.GUI({ autoPlace: false, width: 400 });
+            gui = new dat.GUI({ autoPlace: false, width: 450 }); // Adjusted width
             document.getElementById('controls-container').appendChild(gui.domElement); // Append after statusBox
 
             // Add controllers
@@ -286,13 +344,19 @@
             gui.add(controls, 'rotateRight').name('Rotate Right');
             gui.add(controls, 'reset').name('Reset');
 
-            gui.domElement.style.fontSize = '14px';
+            gui.domElement.style.fontSize = '18px'; // Increased font size
             gui.domElement.style.marginBottom = '20px'; // Space between GUI and Status Box
 
             addScales(weightController);
             addScales(rotorSpeedController);
             addScales(gravityController);
             addScales(pressureController);
+
+            // Remove 'title' attribute from all range inputs to prevent tooltip text like "be selected"
+            const rangeInputs = document.querySelectorAll('.dg .slider input[type=range]');
+            rangeInputs.forEach(input => {
+                input.removeAttribute('title');
+            });
 
             window.addEventListener('resize', onWindowResize, false);
         }
@@ -421,15 +485,34 @@
             scene.add(quadcopter);
         }
 
+        // Helper function to round down to one decimal
+        function roundDownToOneDecimal(num) {
+            return Math.floor(num * 10) / 10;
+        }
+
         function updateQuadcopter() {
-            const hoverSpeed = Math.sqrt((controls.weight * controls.gravity) / (controls.pressure || 1)); // Prevent division by zero
-            let netForce = 0;
+            let netForce;
+            let hoverRotorSpeed;
 
-            const lift = (controls.rotorSpeed ** 2) * controls.pressure / 10;
-            const gravityForce = controls.weight * controls.gravity / 10;
-            netForce = lift - gravityForce;
+            const gravityForce = (controls.weight * controls.gravity) / 10;
 
-            quadcopter.position.y += 0.01 * netForce;
+            if (controls.pressure === 0) {
+                // Atmospheric pressure is zero; no lift regardless of rotor speed
+                netForce = 0;
+                hoverRotorSpeed = NaN; // Not Applicable
+            } else {
+                // Calculate hover rotor speed based on weight, gravity, and pressure
+                const rawHoverRotorSpeed = Math.sqrt((controls.weight * controls.gravity) / controls.pressure);
+                hoverRotorSpeed = roundDownToOneDecimal(rawHoverRotorSpeed);
+
+                // Calculate net force based on rotor speed and hover rotor speed
+                const rotorSpeedRatio = controls.rotorSpeed / hoverRotorSpeed;
+                netForce = (Math.pow(rotorSpeedRatio, 2) - 1) * gravityForce;
+            }
+
+            if (!isHovering) {
+                quadcopter.position.y += 0.01 * netForce;
+            }
 
             // Check if quadcopter flies too high and reset automatically
             if (quadcopter.position.y > 10) { // Threshold can be adjusted
@@ -448,19 +531,27 @@
                 }
             });
 
-            updateStatus(hoverSpeed, netForce);
+            updateStatus(hoverRotorSpeed, netForce);
             handleAudio();
         }
 
-        function updateStatus(hoverSpeed, netForce) {
+        function updateStatus(hoverRotorSpeed, netForce) {
             let forceStatus, statusStatus;
-            const lift = (controls.rotorSpeed ** 2) * controls.pressure / 10;
-            const gravity = controls.weight * controls.gravity / 10;
 
-            if (controls.rotorSpeed === 0) {
+            if (controls.pressure === 0) {
                 forceStatus = "Force: N/A";
-                statusStatus = "Status: Still";
-            } else if (lift > gravity) {
+                statusStatus = "Status: No Takeoff (Pressure = 0)";
+                isHovering = false;
+            } else if (Math.abs(netForce) < 0.0001) { // Considering floating point precision
+                forceStatus = "Force: Lift = Gravity";
+                statusStatus = "Status: Hovering";
+                // Enable hovering effect
+                if (!isHovering) {
+                    hoverStartY = quadcopter.position.y;
+                    hoverTime = 0;
+                }
+                isHovering = true;
+            } else if (netForce > 0) {
                 forceStatus = "Force: Lift > Gravity";
                 statusStatus = "Status: Throttle Up";
                 // Play takeoff sound if not already played
@@ -470,18 +561,21 @@
                     });
                     hasTakenOff = true;
                 }
-            } else if (lift < gravity) {
+                isHovering = false;
+            } else {
                 forceStatus = "Force: Lift < Gravity";
                 statusStatus = "Status: Throttle Down";
                 // Reset the takeoff flag if lifting is no longer sufficient
                 hasTakenOff = false;
-            } else {
-                forceStatus = "Force: Lift = Gravity";
-                statusStatus = "Status: Hovering";
+                isHovering = false;
             }
 
             document.getElementById('force').innerText = forceStatus;
             document.getElementById('statusMessage').innerText = statusStatus;
+
+            // Display Hover Rotor Speed with 1 decimal digit
+            const formattedHoverRotorSpeed = isNaN(hoverRotorSpeed) ? "N/A" : hoverRotorSpeed.toFixed(1);
+            document.getElementById('hoverRotorSpeed').innerText = `Hover Rotor Speed: ${formattedHoverRotorSpeed}`;
 
             const currentTime = Date.now();
             if (currentTime - lastBlinkTime > blinkInterval) {
@@ -492,8 +586,21 @@
                 ball.visible = isBlinkVisible;
             });
 
-            // Update previousRotorSpeed for takeoff sound detection
-            // Removed previousRotorSpeed logic since we're using hasTakenOff
+            // Handle Hovering Sound Effect
+            if (isHovering && !isHoveringSoundPlayed) {
+                hoveringAudio.currentTime = 0;
+                hoveringAudio.play().catch((error) => {
+                    console.warn('Hovering audio play failed:', error);
+                });
+                isHoveringSoundPlayed = true;
+            } else if (!isHovering && isHoveringSoundPlayed) {
+                // Ensure the sound is not playing if not hovering
+                if (!hoveringAudio.paused) {
+                    hoveringAudio.pause();
+                    hoveringAudio.currentTime = 0;
+                }
+                isHoveringSoundPlayed = false;
+            }
         }
 
         function addScales(controller) {
@@ -514,14 +621,14 @@
         }
 
         function handleAudio() {
-            if (controls.rotorSpeed > 0) {
+            if (controls.rotorSpeed > 0 && controls.pressure > 0) {
                 if (rotorAudio.paused) {
                     rotorAudio.play().catch((error) => {
                         console.warn('Rotor audio play failed:', error);
                     });
                 }
                 // Volume proportional to rotor speed (assuming max rotorSpeed =20)
-                rotorAudio.volume = Math.min(controls.rotorSpeed / 20, 8); // Corrected max volume to 1
+                rotorAudio.volume = Math.min(controls.rotorSpeed / 20, 1); // Corrected max volume to 1
             } else {
                 if (!rotorAudio.paused) {
                     rotorAudio.pause();
@@ -533,6 +640,13 @@
         function animate() {
             requestAnimationFrame(animate);
             updateQuadcopter();
+
+            if (isHovering) {
+                hoverTime += 0.016; // Approximate frame time (60fps)
+                const hoverOffset = Math.sin(hoverTime * 2 * Math.PI * hoverFrequency) * hoverAmplitude;
+                quadcopter.position.y = hoverStartY + hoverOffset;
+            }
+
             renderer.render(scene, camera);
         }
 
