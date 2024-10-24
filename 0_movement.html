@@ -224,33 +224,33 @@
 
             // Pitch forward/backward
             if ((speedA + speedB) < (speedC + speedD)) {
-                movement = 'Pitch Forward';
+                movement = 'Pitch Forward (Generate more lift at the back, causing it to tilt forward.)';
                 y -= 10;
                 document.getElementById('pitchForwardLabel').style.display = 'block';
             } else if ((speedA + speedB) > (speedC + speedD)) {
-                movement = 'Pitch Backward';
+                movement = 'Pitch Backward (Generate more lift at the front, causing it to tilt backward.)';
                 y += 10;
                 document.getElementById('pitchBackwardLabel').style.display = 'block';
             }
 
             // Roll left/right
             if ((speedA + speedC) > (speedB + speedD)) {
-                movement += (movement ? ', ' : '') + 'Roll Right';
+                movement += (movement ? ', ' : '') + 'Roll Right (Generate more lift on the left, causing it to tilt right.)';
                 x += 10;
                 document.getElementById('rollRightLabel').style.display = 'block';
             } else if ((speedA + speedC) < (speedB + speedD)) {
-                movement += (movement ? ', ' : '') + 'Roll Left';
+                movement += (movement ? ', ' : '') + 'Roll Left (Generate more lift on the right, causing it to tilt left.)';
                 x -= 10;
                 document.getElementById('rollLeftLabel').style.display = 'block';
             }
 
             // Yaw left/right
             if ((speedA + speedD) > (speedB + speedC)) {
-                movement += (movement ? ', ' : '') + 'Yaw Left';
+                movement += (movement ? ', ' : '') + 'Yaw Left (With a net clockwise force on the body, it turns counterclockwise.)';
                 angle -= Math.PI / 4;
                 document.getElementById('yawLeftLabel').style.display = 'block';
             } else if ((speedA + speedD) < (speedB + speedC)) {
-                movement += (movement ? ', ' : '') + 'Yaw Right';
+                movement += (movement ? ', ' : '') + 'Yaw Right (With a net counterclockwise force on the body, it turns clockwise.)';
                 angle += Math.PI / 4;
                 document.getElementById('yawRightLabel').style.display = 'block';
             }
@@ -260,10 +260,10 @@
             let throttle = '';
             if (speedA === speedB && speedB === speedC && speedC === speedD) {
                 if (currentAverageSpeed > previousAverageSpeed) {
-                    throttle = 'Throttle Up';
+                    throttle = 'Throttle Up (Generate a lift force greater than gravity.)';
                     document.getElementById('throttleLabel').innerText = 'Throttle Up';
                 } else if (currentAverageSpeed < previousAverageSpeed) {
-                    throttle = 'Throttle Down';
+                    throttle = 'Throttle Down (Generate a lift force smaller than gravity.)';
                     document.getElementById('throttleLabel').innerText = 'Throttle Down';
                 } else {
                     document.getElementById('throttleLabel').innerText = '';
