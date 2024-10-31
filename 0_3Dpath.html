@@ -145,20 +145,20 @@ button {
     <div id="code-area">
         <div id="command-buttons">
             <div class="button-row">
-                <button class="green-button" onclick="addCommand('throttleUp')">Throttle Up</button>
-                <button class="green-button" onclick="addCommand('throttleDown')">Throttle Down</button>
+                <button class="green-button" onclick="addCommandAtCursor('throttleUp')">Throttle Up</button>
+                <button class="green-button" onclick="addCommandAtCursor('throttleDown')">Throttle Down</button>
             </div>
             <div class="button-row">
-                <button class="green-button" onclick="addCommand('yawLeft90deg')">Yaw Left 90°</button>
-                <button class="green-button" onclick="addCommand('yawRight90deg')">Yaw Right 90°</button>
+                <button class="green-button" onclick="addCommandAtCursor('yawLeft90deg')">Yaw Left 90°</button>
+                <button class="green-button" onclick="addCommandAtCursor('yawRight90deg')">Yaw Right 90°</button>
             </div>
             <div class="button-row">
-                <button class="orange-button" onclick="addCommand('pitchForward')">Pitch Forward</button>
-                <button class="orange-button" onclick="addCommand('pitchBackward')">Pitch Backward</button>
+                <button class="orange-button" onclick="addCommandAtCursor('pitchForward')">Pitch Forward</button>
+                <button class="orange-button" onclick="addCommandAtCursor('pitchBackward')">Pitch Backward</button>
             </div>
             <div class="button-row">
-                <button class="orange-button" onclick="addCommand('rollLeft')">Roll Left</button>
-                <button class="orange-button" onclick="addCommand('rollRight')">Roll Right</button>
+                <button class="orange-button" onclick="addCommandAtCursor('rollLeft')">Roll Left</button>
+                <button class="orange-button" onclick="addCommandAtCursor('rollRight')">Roll Right</button>
             </div>
         </div>
         <textarea id="code-input"></textarea>
@@ -203,6 +203,26 @@ button {
     warn1Sound.volume = 0.5;
     warn2Sound.volume = 0.5;
     startSound.volume = 0.5; // Set desired volume for start sound
+
+    // **Change for Request 3:** Unlock audio on first user interaction to ensure sounds play on iPad
+    function unlockAudio() {
+        // Play a silent sound to unlock the audio context
+        const silentSound = new Audio();
+        silentSound.volume = 0;
+        silentSound.play().then(() => {
+            silentSound.pause();
+        }).catch((error) => {
+            console.warn('Audio unlock failed:', error);
+        });
+
+        // Remove the event listeners after unlocking
+        document.body.removeEventListener('click', unlockAudio);
+        document.body.removeEventListener('touchstart', unlockAudio);
+    }
+
+    // Add event listeners to unlock audio on user interaction
+    document.body.addEventListener('click', unlockAudio, { once: true });
+    document.body.addEventListener('touchstart', unlockAudio, { once: true });
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -271,19 +291,23 @@ const yawDuration = 500; // milliseconds per 90 degrees
 function initGame() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf0f0f0);
-    camera = new THREE.PerspectiveCamera(75, 600 / 400, 0.1, 1000);
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(600, 400);
     document.getElementById('obstacle-course').innerHTML = '';
     document.getElementById('obstacle-course').appendChild(renderer.domElement);
-    
+
+    // **Change for Request 2:** Set default camera position to a two-stepped zoomed-in view
+    camera = new THREE.PerspectiveCamera(75, 600 / 400, 0.1, 1000);
+    camera.position.set(10, 7, 10); // Adjusted for closer view
+    camera.lookAt(dronePosition);
+
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
-    
+
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(10, 10, 10);
     scene.add(directionalLight);
-    
+
     createDrone();
     createHulaHoops(currentLevel);
     createCoordinatePlane();
@@ -291,20 +315,17 @@ function initGame() {
     addWatermark();
     addWatermarkSTEM(); 
     addVerticalLines();
-    
+
     axesHelper = new THREE.AxesHelper(10);
     scene.add(axesHelper);
-    
-    camera.position.set(15, 10, 15);
-    camera.lookAt(drone.position);
-    
+
     // Start blinking the first hoop
     if (obstacles.length > 0) {
         blinkHoop(obstacles[0]);
     }
-    
+
     animate();
-    
+
     // Play the start sound when the game initializes
     startSound.currentTime = 0; // Ensure the sound starts from the beginning
     startSound.play().catch((error) => {
@@ -317,7 +338,7 @@ function initGame() {
 
 function createDrone() {
     const droneGroup = new THREE.Group();
-    
+
     // 1. Create a blue, semi-transparent cube with adjusted dimensions
     const cubeWidth = 1.5; // Increased to 1.5 from 1
     const cubeHeight = 0.5; // Assuming y-axis is height and remains the same
@@ -326,40 +347,40 @@ function createDrone() {
     const cubeMaterial = new THREE.MeshPhongMaterial({ color: 0x0000ff, transparent: true, opacity: 0.5 });
     const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
     droneGroup.add(cube);
-    
+
     // 2. Create four circles with swapped colors
     const circleRadius = 0.225; // Enlarged by 1.5x from 0.15
     const circleHeight = cubeHeight / 2 + 0.01; // slightly above the cube
-    
+
     const frontCircleMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 1 }); // Swapped to green
     const rearCircleMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 1 }); // Swapped to red
-    
+
     const circleGeometry = new THREE.CylinderGeometry(circleRadius, circleRadius, 0.02, 32);
-    
+
     // Front Left Circle
     const frontLeft = new THREE.Mesh(circleGeometry, frontCircleMaterial.clone());
     frontLeft.position.set(-cubeWidth / 2, circleHeight, cubeDepth / 2);
     droneGroup.add(frontLeft);
-    
+
     // Front Right Circle
     const frontRight = new THREE.Mesh(circleGeometry, frontCircleMaterial.clone());
     frontRight.position.set(cubeWidth / 2, circleHeight, cubeDepth / 2);
     droneGroup.add(frontRight);
-    
+
     // Rear Left Circle
     const rearLeft = new THREE.Mesh(circleGeometry, rearCircleMaterial.clone());
     rearLeft.position.set(-cubeWidth / 2, circleHeight, -cubeDepth / 2);
     droneGroup.add(rearLeft);
-    
+
     // Rear Right Circle
     const rearRight = new THREE.Mesh(circleGeometry, rearCircleMaterial.clone());
     rearRight.position.set(cubeWidth / 2, circleHeight, -cubeDepth / 2);
     droneGroup.add(rearRight);
-    
+
     // Store references for blinking
     frontCircles = [frontLeft, frontRight];
     rearCircles = [rearLeft, rearRight];
-    
+
     // 3. Add a triangle pointing to the rear
     const triangleGeometry = new THREE.ConeGeometry(1, 2, 3);
     const triangleMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00 });
@@ -367,26 +388,26 @@ function createDrone() {
     triangle.rotation.x = -Math.PI / 2; // Pointing backward
     triangle.position.set(0, circleHeight + 0, -cubeDepth / 2 - 0); // Positioned at the rear
     droneGroup.add(triangle);
-    
+
     // 4. Integrate the Start Marker (Green Spot with 'S' Label) into the Drone
     const startGeometry = new THREE.SphereGeometry(0.5, 32, 32);
     const startMaterial = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
     const startMarker = new THREE.Mesh(startGeometry, startMaterial);
     startMarker.position.set(0, circleHeight + 0.25, 0); // Positioned at the top center of the drone
     droneGroup.add(startMarker);
-    
+
     addLabel(startMarker, 'S', 0, 0.8, 0, 'green'); // Bold "S" inside the start marker
     addShadow(startMarker);
-    
+
     droneGroup.rotation.x = 0; // Ensure upright position
-    
+
     scene.add(droneGroup);
     drone = droneGroup;
 }
 
 function createHulaHoops(level) {
     obstacles = []; // Clear existing obstacles
-    
+
     for (let i = 1; i <= levelConfigs[level].vertical; i++) {
         const position = generateNonOverlappingPosition();
         const radius = getRandomRadius(2, 3);
@@ -405,19 +426,19 @@ function createHulaHoop(x, y, z, radius, number, orientation) {
     const hoopGeometry = new THREE.TorusGeometry(radius, 0.1, 16, 100);
     const hoopMaterial = new THREE.MeshPhongMaterial({ color: 0xff8c00, transparent: true, opacity: 0.7 });
     const hoop = new THREE.Mesh(hoopGeometry, hoopMaterial);
-    
+
     // Set orientation based on level
     if (orientation === 'vertical') {
         hoop.rotation.x = Math.PI / 2;
     } else if (orientation === 'horizontal') {
         hoop.rotation.x = 0;
     }
-    
+
     hoopGroup.add(hoop);
     hoopGroup.position.set(x, y, z);
     scene.add(hoopGroup);
     obstacles.push(hoopGroup);
-    
+
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     canvas.width = 128;
@@ -429,7 +450,7 @@ function createHulaHoop(x, y, z, radius, number, orientation) {
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillText(number.toString(), 64, 64);
-    
+
     const numberTexture = new THREE.CanvasTexture(canvas);
     const numberMaterial = new THREE.SpriteMaterial({ map: numberTexture });
     const numberSprite = new THREE.Sprite(numberMaterial);
@@ -442,17 +463,17 @@ function generateNonOverlappingPosition() {
     const maxAttempts = 100;
     let attempt = 0;
     let position;
-    
+
     while (attempt < maxAttempts) {
         const x = THREE.MathUtils.randFloatSpread(14); // Increased spread to -7 to 7 for better spacing
         const y = THREE.MathUtils.randFloat(2, 5); // 2 to 5 to avoid ground level
         const z = THREE.MathUtils.randFloatSpread(14); // -7 to 7
-    
+
         position = new THREE.Vector3(x, y, z);
-    
+
         // Ensure the hoop is within boundaries (-10 to 10 on X and Z)
         if (Math.abs(x) > 10 || Math.abs(z) > 10) continue;
-    
+
         // Check for overlap with existing hoops
         let overlapping = false;
         for (let hoop of obstacles) {
@@ -461,24 +482,24 @@ function generateNonOverlappingPosition() {
                 break;
             }
         }
-    
+
         // Check for minimum distance from start
         if (position.distanceTo(new THREE.Vector3(0, 0, 0)) < MIN_DISTANCE_FROM_START) {
             overlapping = true;
         }
-    
+
         // Check for minimum distance from goal (if goal is already placed)
         if (goalMarker && position.distanceTo(goalMarker.position) < MIN_DISTANCE_TO_GOAL_FOR_HOOP) {
             overlapping = true;
         }
-    
+
         if (!overlapping) {
             return position;
         }
-    
+
         attempt++;
     }
-    
+
     // Fallback position if no non-overlapping position is found
     return new THREE.Vector3(0, 2, 0);
 }
@@ -492,18 +513,18 @@ function createCoordinatePlane() {
     const divisions = 20;
     const gridHelper = new THREE.GridHelper(size, divisions, 0xcccccc, 0xcccccc);
     scene.add(gridHelper);
-    
+
     const fontLoader = new THREE.FontLoader();
     fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function(font) {
         const textMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    
+
         for (let i = -10; i <= 10; i += 2) {
             if (i !== 0) {
                 createText(font, textMaterial, i.toString(), i, 0, -10);
                 createText(font, textMaterial, i.toString(), -10, 0, i);
             }
         }
-    
+
         createText(font, textMaterial, 'X', 11, 0, 0);
         createText(font, textMaterial, 'Z', 0, 0, 11);
         createText(font, textMaterial, 'Y', 0, 11, 0);
@@ -540,7 +561,7 @@ function addDirectionIndicator(position, text, color) {
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillText(text, 128, 128);
-    
+
     const texture = new THREE.CanvasTexture(canvas);
     const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
     const sprite = new THREE.Sprite(spriteMaterial);
@@ -560,20 +581,20 @@ function createGoalMarker() {
         scene.remove(goalMarker);
         goalMarker = null;
     }
-    
+
     // Generate a non-overlapping position for the goal based on the current level
     let position = generateGoalPosition(currentLevel);
     goalPosition.copy(position); // Update the goalPosition vector
-    
+
     const goalGeometry = new THREE.SphereGeometry(0.5, 32, 32);
     const goalMaterial = new THREE.MeshPhongMaterial({ color: 0xff8c00, transparent: true, opacity: 0.5 });
     goalMarker = new THREE.Mesh(goalGeometry, goalMaterial);
     goalMarker.position.copy(position);
     scene.add(goalMarker);
-    
+
     // Place the "G" label inside the goal marker
     addLabel(goalMarker, 'G', 0, 0.8, 0.5, 'orange'); // Bold "G" inside the goal marker
-    
+
     addShadow(goalMarker);
 }
 
@@ -598,7 +619,7 @@ function addLabel(object, text, x, y, z, color) {
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillText(text, 128, 128);
-    
+
     const texture = new THREE.CanvasTexture(canvas);
     const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
     const sprite = new THREE.Sprite(spriteMaterial);
@@ -649,7 +670,7 @@ function addVerticalLines() {
         points.push(new THREE.Vector3(10, y, 10));
         points.push(new THREE.Vector3(-10, y, 10));
         points.push(new THREE.Vector3(-10, y, -10));
-    
+
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
         const line = new THREE.Line(geometry, material);
         scene.add(line);
@@ -658,50 +679,58 @@ function addVerticalLines() {
 
 function animate() {
     requestAnimationFrame(animate);
-    
+
     // Blinking logic
     const now = Date.now();
     if (now - lastBlinkTime > blinkDuration) {
         blinkState = !blinkState;
         lastBlinkTime = now;
-    
+
         frontCircles.forEach(circle => {
             circle.material.opacity = blinkState ? 1 : 0;
         });
-    
+
         rearCircles.forEach(circle => {
             circle.material.opacity = blinkState ? 1 : 0;
         });
     }
-    
+
     renderer.render(scene, camera);
 }
 
-// Function to add commands without multiplier prompts
-function addCommand(command) {
-    codeInput.value += command + '\n';
+// **Change for Request 1:** Modify addCommand to insert at cursor position
+function addCommandAtCursor(command) {
+    const start = codeInput.selectionStart;
+    const end = codeInput.selectionEnd;
+    const before = codeInput.value.substring(0, start);
+    const after  = codeInput.value.substring(end, codeInput.value.length);
+    codeInput.value = before + command + '\n' + after;
+    // Move the cursor to after the inserted command
+    const newCursorPosition = start + command.length + 1; // +1 for the newline
+    codeInput.selectionStart = codeInput.selectionEnd = newCursorPosition;
+    codeInput.focus();
     updateStepsCount();
 }
 
 async function runCode() {
     if (isExecuting) return; // Prevent multiple executions at the same time
     isExecuting = true;
-    
+
     // **Revision 2:** Disable the "Run Code" button after it's pressed
     document.getElementById('run-button').disabled = true;
-    
+
     // Clear previous timeouts
     commandTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
     commandTimeouts = [];
-    
+
     // Parse commands
     const commands = codeInput.value.trim().split('\n').filter(cmd => cmd.trim() !== '');
-    
+
     // Enqueue all commands
     for (const command of commands) {
         await executeSingleCommand(command.trim());
     }
-    
+
     checkGoal();
     isExecuting = false;
     // Note: The "Run Code" button remains disabled until "Home" or "Level" is pressed
@@ -773,7 +802,7 @@ function throttleDrone(direction) {
         const stepDuration = 50; // milliseconds
         let currentStep = 0;
         const deltaY = direction === 'up' ? 0.1 : -0.1;
-        
+
         const throttleInterval = setInterval(() => {
             if (currentStep < steps) {
                 moveDrone(0, deltaY, 0);
@@ -799,7 +828,7 @@ function yawDrone(direction, angle) {
         const stepDuration = yawDuration / steps;
         let currentStep = 0;
         const deltaAngle = direction === 'left' ? angle / steps : -angle / steps;
-        
+
         const yawInterval = setInterval(() => {
             if (currentStep < steps) {
                 drone.rotation.y += deltaAngle;
@@ -825,18 +854,18 @@ function checkHulaHoops() {
     obstacles.forEach((hoop, index) => {
         const distance = dronePosition.distanceTo(hoop.position);
         const requiredDistance = (hoop.children[0].geometry.parameters.radius + 0.5); // Extra buffer
-    
+
         if (distance < requiredDistance) {
             if (index + 1 === currentHoop) {
                 hoop.children[0].material.color.setHex(0x00ff00); // Change color to green
                 hoop.children[0].material.opacity = 0.7; // Ensure no blinking
-    
+
                 // Stop blinking
                 if (blinkIntervals[index]) {
                     clearInterval(blinkIntervals[index]);
                     delete blinkIntervals[index];
                 }
-    
+
                 messageDiv.textContent = `Congratulations! You've passed through hoop ${currentHoop}!`;
                 messageDiv.classList.add('blink');
                 // Play "bonus" sound
@@ -930,28 +959,28 @@ function homePosition() {
     // Stop all scheduled commands
     commandTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
     commandTimeouts = [];
-    
+
     // Stop all blinking intervals
     Object.values(blinkIntervals).forEach(intervalId => clearInterval(intervalId));
     blinkIntervals = {};
-    
+
     // Reset command queue and execution flag
     commandQueue = [];
     isExecuting = false;
-    
+
     // **Revision 2:** Re-enable the "Run Code" button when "Home" is pressed
     document.getElementById('run-button').disabled = false;
-    
+
     // Reset drone position and rotation
     dronePosition.set(0, 0, 0);
     drone.rotation.set(0, 0, 0, 'XYZ');
     drone.position.copy(dronePosition);
     drone.quaternion.setFromEuler(drone.rotation);
-    camera.position.set(15, 10, 15);
+    camera.position.set(10, 7, 10); // Reset to the default zoomed-in position
     camera.lookAt(drone.position);
     messageDiv.textContent = '';
     messageDiv.classList.remove('blink', 'color-change');
-    
+
     // Restore hula hoop colors and opacities
     obstacles.forEach(hoop => {
         hoop.children[0].material.color.setHex(0xff8c00);
@@ -959,19 +988,19 @@ function homePosition() {
     });
     currentHoop = 1;
     alertShown = false; // Reset alert flag
-    
+
     // Reset goal color
     if (goalMarker) {
         goalMarker.material.color.setHex(0xff8c00);
     }
-    
+
     // Increment attempts count
     attemptsCount++;
     attemptsDisplay.textContent = attemptsCount;
-    
+
     // Do NOT reset Steps count upon pressing "Home" as per instructions
     // Steps count will remain as is
-    
+
     // Start blinking the first hoop again
     if (obstacles.length > 0) {
         blinkHoop(obstacles[0]);
@@ -1030,11 +1059,11 @@ function resetGameForNewLevel() {
     // Stop all scheduled commands
     commandTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
     commandTimeouts = [];
-    
+
     // Stop all blinking intervals
     Object.values(blinkIntervals).forEach(intervalId => clearInterval(intervalId));
     blinkIntervals = {};
-    
+
     // Remove existing hoops from the scene
     obstacles.forEach(hoop => scene.remove(hoop));
     obstacles = [];
@@ -1043,23 +1072,23 @@ function resetGameForNewLevel() {
         scene.remove(goalMarker);
         goalMarker = null;
     }
-    
+
     // Create new hoops based on the selected level
     createHulaHoops(currentLevel);
-    
+
     // Generate a new goal position
     createGoalMarker();
-    
+
     // Reset drone position and rotation
     dronePosition.set(0, 0, 0);
     drone.rotation.set(0, 0, 0, 'XYZ');
     drone.position.copy(dronePosition);
     drone.quaternion.setFromEuler(drone.rotation);
-    camera.position.set(15, 10, 15);
+    camera.position.set(10, 7, 10); // Reset to the default zoomed-in position
     camera.lookAt(drone.position);
     messageDiv.textContent = '';
     messageDiv.classList.remove('blink', 'color-change');
-    
+
     // Restore hula hoop colors and opacities
     obstacles.forEach(hoop => {
         hoop.children[0].material.color.setHex(0xff8c00);
@@ -1067,22 +1096,22 @@ function resetGameForNewLevel() {
     });
     currentHoop = 1;
     alertShown = false; // Reset alert flag
-    
+
     // Reset goal color
     if (goalMarker) {
         goalMarker.material.color.setHex(0xff8c00);
     }
-    
+
     // Reset counters when changing levels
     attemptsCount = 0;
     attemptsDisplay.textContent = attemptsCount;
-    
+
     stepsCount = 0;
     stepsDisplay.textContent = stepsCount;
-    
+
     // Do NOT reset code input to preserve user code
     // codeInput.value = ''; // Already handled above
-    
+
     // Start blinking the first hoop again
     if (obstacles.length > 0) {
         blinkHoop(obstacles[0]);
@@ -1097,7 +1126,7 @@ function generateGoalPosition(level) {
         3: new THREE.Vector3(7, 3, -7)
         // Levels 4 and 5 are deleted
     };
-    
+
     // If predefined position exists for the level, use it
     if (predefinedGoals[level]) {
         // Ensure it's within boundaries and not overlapping with hoops
@@ -1113,20 +1142,20 @@ function generateGoalPosition(level) {
             return position;
         }
     }
-    
+
     // Fallback: Random position if predefined is too close
     const maxAttempts = 100;
     let attempt = 0;
     let position;
     const minDistanceToHoop = MIN_DISTANCE_TO_GOAL_FOR_HOOP; // Minimum distance from any hoop
-    
+
     while (attempt < maxAttempts) {
         const x = THREE.MathUtils.randFloatSpread(14); // -7 to 7
         const y = THREE.MathUtils.randFloat(2, 5); // 2 to 5 to avoid ground level
         const z = THREE.MathUtils.randFloatSpread(14); // -7 to 7
-    
+
         position = new THREE.Vector3(x, y, z);
-    
+
         // Ensure the goal is not too close to any hoops or the start
         let tooClose = false;
         for (let hoop of obstacles) {
@@ -1135,18 +1164,18 @@ function generateGoalPosition(level) {
                 break;
             }
         }
-    
+
         if (position.distanceTo(new THREE.Vector3(0, 0, 0)) < MIN_DISTANCE_FROM_START) {
             tooClose = true;
         }
-    
+
         if (!tooClose) {
             return position;
         }
-    
+
         attempt++;
     }
-    
+
     // Fallback position if no suitable position is found
     return new THREE.Vector3(0, 3, 9);
 }
@@ -1157,14 +1186,14 @@ initGame();
 function updateStepsCount() {
     const commands = codeInput.value.trim().split('\n').filter(cmd => cmd.trim() !== '');
     let totalSteps = 0;
-    
+
     commands.forEach(commandLine => {
         const baseCommand = commandLine.trim();
         if (baseCommand) {
             totalSteps += 1;
         }
     });
-    
+
     stepsCount = totalSteps;
     stepsDisplay.textContent = stepsCount;
 }
