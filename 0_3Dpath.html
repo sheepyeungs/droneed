@@ -719,6 +719,12 @@ async function runCode() {
     // **Revision 2:** Disable the "Run Code" button after it's pressed
     document.getElementById('run-button').disabled = true;
 
+    // **Change for Sound on Run Code Press:** Play startSound when "Run Code" is pressed
+    startSound.currentTime = 0; // Reset to start
+    startSound.play().catch((error) => {
+        console.warn('Start sound playback was prevented:', error);
+    });
+
     // Clear previous timeouts
     commandTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
     commandTimeouts = [];
@@ -1001,6 +1007,12 @@ function homePosition() {
     // Do NOT reset Steps count upon pressing "Home" as per instructions
     // Steps count will remain as is
 
+    // **Change for Sound on Home Press:** Play startSound when "Home" is pressed
+    startSound.currentTime = 0; // Reset to start
+    startSound.play().catch((error) => {
+        console.warn('Start sound playback was prevented:', error);
+    });
+
     // Start blinking the first hoop again
     if (obstacles.length > 0) {
         blinkHoop(obstacles[0]);
@@ -1111,6 +1123,12 @@ function resetGameForNewLevel() {
 
     // Do NOT reset code input to preserve user code
     // codeInput.value = ''; // Already handled above
+
+    // **Change for Sound on Level Change:** Play startSound after resetting
+    startSound.currentTime = 0; // Reset to start
+    startSound.play().catch((error) => {
+        console.warn('Start sound playback was prevented:', error);
+    });
 
     // Start blinking the first hoop again
     if (obstacles.length > 0) {
