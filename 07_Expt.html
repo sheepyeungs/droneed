@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Explorer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        h2 {
+            text-align: center;
+            font-style: italic;
+            font-weight: normal;
+            margin-top: 5px;
+            margin-bottom: 20px;
+            color: #555;
+        }
+        .container {
+            display: flex;
+            width: 100%;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+        .left-side, .right-side {
+            width: 48%;
+            min-width: 300px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            min-height: 600px; /* Adjusted for similar heights */
+        }
+        .left-side {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+            background-color: #fdfdfd;
+        }
+        .section {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .independent-section {
+            background-color: #FFFC33; /* Pale Red */
+        }
+        .dependent-section {
+            background-color: #33FFD4; /* Pale Blue */
+        }
+        .average-section {
+            background-color: #e5ffe5; /* Pale Green */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            table-layout: fixed;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+            word-wrap: break-word;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        /* Color Classes for Experiments */
+        .red-text { color: red; }
+        .blue-text { color: blue; }
+        .green-text { color: green; }
+        .orange-text { color: orange; }
+        /* Background Colors for Dependent Variable Rows */
+        .red-bg { background-color: #ffe5e5; }
+        .blue-bg { background-color: #e5f0ff; }
+        .green-bg { background-color: #e5ffe5; }
+        .orange-bg { background-color: #fff5e5; }
+        input[type="number"] {
+            width: 80%;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+        select {
+            width: 60%;
+            padding: 5px;
+            margin-top: 5px;
+            margin-bottom: 10px;
+        }
+        .average-box {
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .average-box span {
+            font-weight: bold;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            width: 100%;
+            height: auto;
+            background-color: #ffffff;
+            position: relative;
+        }
+        .trendline-equation {
+            position: absolute;
+            font-weight: bold;
+            color: purple;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 3px 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            transform: translate(-50%, -100%);
+            pointer-events: none;
+            font-size: 1.8em; /* Adjusted for better visibility */
+        }
+        .r-squared {
+            position: absolute;
+            font-weight: bold;
+            color: purple;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 3px 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            transform: translate(-50%, 0);
+            pointer-events: none;
+            font-size: 1.2em; /* Adjusted for better visibility */
+        }
+        .annotation {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 1.5em; /* Adjusted for better visibility */
+            color: #FF3333;
+        }
+        /* Responsive Design */
+        @media (max-width: 800px) {
+            .left-side, .right-side {
+                width: 100%;
+                margin-bottom: 20px;
+            }
+        }
+        /* Additional Styling for Dependent Variable Rows */
+        .dependent-section table tr.red-bg td:first-child,
+        .dependent-section table tr.red-bg td:last-child {
+            color: red;
+            font-weight: bold;
+        }
+        .dependent-section table tr.blue-bg td:first-child,
+        .dependent-section table tr.blue-bg td:last-child {
+            color: blue;
+            font-weight: bold;
+        }
+        .dependent-section table tr.green-bg td:first-child,
+        .dependent-section table tr.green-bg td:last-child {
+            color: green;
+            font-weight: bold;
+        }
+        .dependent-section table tr.orange-bg td:first-child,
+        .dependent-section table tr.orange-bg td:last-child {
+            color: orange;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Speed Explorer</h1>
+    <h2>Discover How Distance, Time, and Speed Relate!</h2>
+
+    <div class="container">
+        <!-- Left Side: Input Sections -->
+        <div class="left-side">
+            <!-- Independent Variable Section -->
+            <div class="section independent-section">
+                <strong>Select Independent Variable:</strong>
+                <select id="independentVariable">
+                    <option value="distance">Distance (m)</option>
+                    <option value="time">Time (s)</option>
+                </select>
+
+                <!-- Independent Variable Input Table -->
+                <table id="indepVarTable">
+                    <thead>
+                        <tr>
+                            <th>Experiment</th>
+                            <th class="red-text">Expt. A (Red)</th>
+                            <th class="blue-text">Expt. B (Blue)</th>
+                            <th class="green-text">Expt. C (Green)</th>
+                            <th class="orange-text">Expt. D (Orange)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td id="indepVarLabel">Distance (m)</td>
+                            <td><input type="number" id="indepA" min="0" step="0.1"></td>
+                            <td><input type="number" id="indepB" min="0" step="0.1"></td>
+                            <td><input type="number" id="indepC" min="0" step="0.1"></td>
+                            <td><input type="number" id="indepD" min="0" step="0.1"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Dependent Variable Section -->
+            <div class="section dependent-section">
+                <strong>Dependent Variable: <span id="dependentVarLabel">Time (s)</span></strong>
+                <!-- Combined Dependent Variable Input Table -->
+                <table id="depVarTable">
+                    <thead>
+                        <tr>
+                            <th>Experiment</th>
+                            <th>Trial 1</th>
+                            <th>Trial 2</th>
+                            <th>Trial 3</th>
+                            <th>Trial 4</th>
+                            <th>Average Speed (m/s)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="red-bg">
+                            <td>Expt. A (Red)</td>
+                            <td><input type="number" id="depA1" min="0" step="0.1"></td>
+                            <td><input type="number" id="depA2" min="0" step="0.1"></td>
+                            <td><input type="number" id="depA3" min="0" step="0.1"></td>
+                            <td><input type="number" id="depA4" min="0" step="0.1"></td>
+                            <td><span id="avgA">0.00</span></td>
+                        </tr>
+                        <tr class="blue-bg">
+                            <td>Expt. B (Blue)</td>
+                            <td><input type="number" id="depB1" min="0" step="0.1"></td>
+                            <td><input type="number" id="depB2" min="0" step="0.1"></td>
+                            <td><input type="number" id="depB3" min="0" step="0.1"></td>
+                            <td><input type="number" id="depB4" min="0" step="0.1"></td>
+                            <td><span id="avgB">0.00</span></td>
+                        </tr>
+                        <tr class="green-bg">
+                            <td>Expt. C (Green)</td>
+                            <td><input type="number" id="depC1" min="0" step="0.1"></td>
+                            <td><input type="number" id="depC2" min="0" step="0.1"></td>
+                            <td><input type="number" id="depC3" min="0" step="0.1"></td>
+                            <td><input type="number" id="depC4" min="0" step="0.1"></td>
+                            <td><span id="avgC">0.00</span></td>
+                        </tr>
+                        <tr class="orange-bg">
+                            <td>Expt. D (Orange)</td>
+                            <td><input type="number" id="depD1" min="0" step="0.1"></td>
+                            <td><input type="number" id="depD2" min="0" step="0.1"></td>
+                            <td><input type="number" id="depD3" min="0" step="0.1"></td>
+                            <td><input type="number" id="depD4" min="0" step="0.1"></td>
+                            <td><span id="avgD">0.00</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Overall Average Speed Section -->
+            <div class="section average-section">
+                <!-- Overall Average Speed Display -->
+                <div class="average-box">
+                    <strong>Overall Average Speed:</strong> <span id="overallAverage">0.00 m/s</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Graphical Representation -->
+        <div class="right-side" style="position: relative;">
+            <canvas id="graph" width="500" height="500"></canvas>
+            <div class="trendline-equation" id="trendlineEquation"></div>
+            <div class="r-squared" id="rSquaredDisplay"></div>
+            <div class="annotation" id="trendlineAnnotation"></div>
+        </div>
+    </div>
+
+    <script>
+        // ----------------------- Variable Selection and Dynamic Tables -----------------------
+        const independentVariableSelect = document.getElementById('independentVariable');
+        const indepVarLabel = document.getElementById('indepVarLabel');
+        const dependentVarLabel = document.getElementById('dependentVarLabel');
+        const depVarTable = document.getElementById('depVarTable');
+        const overallAverageDisplay = document.getElementById('overallAverage');
+
+        // Function to update the dependent variable label
+        function updateDependentVarLabel(indepVar) {
+            dependentVarLabel.textContent = indepVar === 'distance' ? 'Time (s)' : 'Distance (m)';
+            // Update table header based on dependent variable
+            const depHeader = depVarTable.querySelector('th:last-child');
+            depHeader.textContent = 'Average Speed (m/s)';
+        }
+
+        // Function to calculate overall average speed correctly
+        function calculateOverallAverage() {
+            const independents = ['A', 'B', 'C', 'D'];
+            let totalDistance = 0;
+            let totalTime = 0;
+
+            independents.forEach(expt => {
+                const indepVal = parseFloat(document.getElementById(`indep${expt}`).value);
+                if (isNaN(indepVal) || indepVal <= 0) return;
+
+                if (independentVariableSelect.value === 'distance') {
+                    // Independent Variable is Distance
+                    let sumTime = 0;
+                    let validTrials = 0;
+                    for(let i=1; i<=4; i++) {
+                        const depVal = parseFloat(document.getElementById(`dep${expt}${i}`).value);
+                        if(!isNaN(depVal) && depVal > 0) {
+                            sumTime += depVal;
+                            validTrials++;
+                        }
+                    }
+                    if(validTrials > 0) {
+                        const avgTime = sumTime / validTrials;
+                        totalDistance += indepVal;
+                        totalTime += avgTime;
+                        // Update average speed per experiment
+                        const avgSpeed = indepVal / avgTime;
+                        document.getElementById(`avg${expt}`).textContent = avgSpeed.toFixed(2);
+                    } else {
+                        document.getElementById(`avg${expt}`).textContent = '0.00';
+                    }
+                } else {
+                    // Independent Variable is Time
+                    let sumDistance = 0;
+                    let validTrials = 0;
+                    for(let i=1; i<=4; i++) {
+                        const depVal = parseFloat(document.getElementById(`dep${expt}${i}`).value);
+                        if(!isNaN(depVal) && depVal > 0) {
+                            sumDistance += depVal;
+                            validTrials++;
+                        }
+                    }
+                    if(validTrials > 0) {
+                        const avgDistance = sumDistance / validTrials;
+                        totalDistance += avgDistance;
+                        totalTime += indepVal;
+                        // Update average speed per experiment
+                        const avgSpeed = avgDistance / indepVal;
+                        document.getElementById(`avg${expt}`).textContent = avgSpeed.toFixed(2);
+                    } else {
+                        document.getElementById(`avg${expt}`).textContent = '0.00';
+                    }
+                }
+            });
+
+            // Calculate overall average speed
+            if(totalTime > 0) {
+                const overallAvg = totalDistance / totalTime;
+                overallAverageDisplay.textContent = overallAvg.toFixed(2) + ' m/s';
+                return overallAvg;
+            } else {
+                overallAverageDisplay.textContent = '0.00 m/s';
+                return 0;
+            }
+        }
+
+        // Function to handle input changes and recalculate
+        function handleInputChange(expt) {
+            calculateOverallAverage();
+            drawGraph();
+        }
+
+        // Event Listeners for Input Changes to Calculate Averages
+        ['A', 'B', 'C', 'D'].forEach(expt => {
+            for(let i=1; i<=4; i++) {
+                document.getElementById(`dep${expt}${i}`).addEventListener('input', () => {
+                    handleInputChange(expt);
+                });
+            }
+            document.getElementById(`indep${expt}`).addEventListener('input', () => {
+                handleInputChange(expt);
+            });
+        });
+
+        independentVariableSelect.addEventListener('change', () => {
+            const selectedVar = independentVariableSelect.value;
+            indepVarLabel.textContent = selectedVar === 'distance' ? 'Distance (m)' : 'Time (s)';
+            updateDependentVarLabel(selectedVar);
+            // Reset dependent variable inputs and averages
+            ['A', 'B', 'C', 'D'].forEach(expt => {
+                for(let i=1; i<=4; i++) {
+                    document.getElementById(`dep${expt}${i}`).value = '';
+                }
+                document.getElementById(`avg${expt}`).textContent = '0.00';
+            });
+            // Reset overall average
+            calculateOverallAverage();
+            // Redraw graph
+            drawGraph();
+        });
+
+        // ----------------------- Graphical Representation -----------------------
+        const canvas = document.getElementById('graph');
+        const ctx = canvas.getContext('2d');
+        const trendlineEquationDisplay = document.getElementById('trendlineEquation');
+        const rSquaredDisplayElement = document.getElementById('rSquaredDisplay');
+        const trendlineAnnotation = document.getElementById('trendlineAnnotation');
+
+        function drawGraph() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            trendlineEquationDisplay.textContent = '';
+            rSquaredDisplayElement.textContent = '';
+            trendlineAnnotation.textContent = '';
+
+            // Define margins
+            const margin = 50;
+            const width = canvas.width - 2 * margin;
+            const height = canvas.height - 2 * margin;
+
+            // Draw grid
+            drawGrid(ctx, margin, width, height);
+
+            // Draw axes
+            ctx.beginPath();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.moveTo(margin, margin);
+            ctx.lineTo(margin, margin + height);
+            ctx.lineTo(margin + width, margin + height);
+            ctx.stroke();
+
+            // Axis Labels
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#000';
+            // X-axis label positioned closer to the axis
+            const xLabel = independentVariableSelect.value === 'distance' ? 'Distance (m)' : 'Time (s)';
+            ctx.fillText(xLabel, margin + width / 2 - 30, margin + height + 40); // Adjusted position
+
+            // Y-axis label positioned closer to the axis
+            ctx.save();
+            ctx.translate(margin - 40, margin + height / 2 + 20); // Adjusted position
+            ctx.rotate(-Math.PI / 2);
+            const yLabel = independentVariableSelect.value === 'distance' ? 'Time (s)' : 'Distance (m)';
+            ctx.fillText(yLabel, 0, 0);
+            ctx.restore();
+
+            // Gather all data points
+            const expts = ['A', 'B', 'C', 'D'];
+            let dataPoints = [];
+
+            expts.forEach(expt => {
+                const indepVal = parseFloat(document.getElementById(`indep${expt}`).value);
+                if (isNaN(indepVal) || indepVal <= 0) return;
+
+                if (independentVariableSelect.value === 'distance') {
+                    for(let i=1; i<=4; i++) {
+                        const depVal = parseFloat(document.getElementById(`dep${expt}${i}`).value);
+                        if(!isNaN(depVal) && depVal > 0) {
+                            dataPoints.push({
+                                expt: expt,
+                                color: expt === 'A' ? 'red' : expt === 'B' ? 'blue' : expt === 'C' ? 'green' : 'orange',
+                                x: indepVal,
+                                y: depVal
+                            });
+                        }
+                    }
+                } else {
+                    for(let i=1; i<=4; i++) {
+                        const depVal = parseFloat(document.getElementById(`dep${expt}${i}`).value);
+                        if(!isNaN(depVal) && depVal > 0) {
+                            dataPoints.push({
+                                expt: expt,
+                                color: expt === 'A' ? 'red' : expt === 'B' ? 'blue' : expt === 'C' ? 'green' : 'orange',
+                                x: depVal,
+                                y: indepVal
+                            });
+                        }
+                    }
+                }
+            });
+
+            if(dataPoints.length === 0) return;
+
+            // Determine scales
+            const maxX = Math.max(...dataPoints.map(p => p.x)) * 1.2;
+            const maxY = Math.max(...dataPoints.map(p => p.y)) * 1.2;
+
+            // Draw data points
+            dataPoints.forEach(point => {
+                const x = margin + (point.x / maxX) * width;
+                const y = margin + height - (point.y / maxY) * height;
+                ctx.beginPath();
+                ctx.fillStyle = point.color;
+                ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+
+            // Perform linear regression passing through origin
+            const n = dataPoints.length;
+            let sumXY = 0, sumX2 = 0;
+
+            dataPoints.forEach(p => {
+                sumXY += p.x * p.y;
+                sumX2 += p.x * p.x;
+            });
+
+            const slope = sumX2 !== 0 ? sumXY / sumX2 : 0;
+
+            // Calculate R² value
+            let ssTotal = 0;
+            let ssRes = 0;
+            let sumY = dataPoints.reduce((acc, p) => acc + p.y, 0);
+            let meanY = sumY / n;
+
+            dataPoints.forEach(p => {
+                const predictedY = slope * p.x;
+                ssTotal += (p.y - meanY) ** 2;
+                ssRes += (p.y - predictedY) ** 2;
+            });
+
+            const rSquared = ssTotal !== 0 ? 1 - (ssRes / ssTotal) : 0;
+
+            // Draw trendline passing through origin
+            if(!isNaN(slope) && slope !== 0) {
+                const startXVal = 0;
+                const startYVal = slope * startXVal;
+                const endXVal = maxX;
+                const endYVal = slope * endXVal;
+
+                const startX = margin + (startXVal / maxX) * width;
+                const startY = margin + height - (startYVal / maxY) * height;
+                const endX = margin + (endXVal / maxX) * width;
+                const endY = margin + height - (endYVal / maxY) * height;
+
+                ctx.beginPath();
+                ctx.strokeStyle = 'purple'; // Trendline color
+                ctx.lineWidth = 2;
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+
+                // Display trendline equation
+                trendlineEquationDisplay.textContent = `y = ${slope.toFixed(3)}x`;
+                // Position the trendline equation in the middle of the trendline
+                const midX = (startX + endX) / 2;
+                const midY = (startY + endY) / 2;
+                trendlineEquationDisplay.style.left = `${midX}px`;
+                trendlineEquationDisplay.style.top = `${midY}px`;
+
+                // Display R² value below the trendline equation
+                rSquaredDisplayElement.textContent = `(R² = ${rSquared.toFixed(2)})`;
+                rSquaredDisplayElement.style.left = `${midX}px`;
+                rSquaredDisplayElement.style.top = `${midY + 15}px`; // 15px below the equation
+                rSquaredDisplayElement.style.transform = `translate(-50%, 0)`;
+
+                // Annotation for slope and average speed relationship inside grid
+                let relationshipText = '';
+                if(independentVariableSelect.value === 'distance') {
+                    relationshipText = `Average Speed = ${(1 / slope).toFixed(3)} m/s`;
+                } else {
+                    relationshipText = `Average Speed = ${slope.toFixed(3)} m/s`;
+                }
+                trendlineAnnotation.textContent = relationshipText;
+            }
+        }
+
+        // Function to draw grid
+        function drawGrid(ctx, margin, width, height) {
+            const gridSize = 50; // Adjust grid size as needed
+            ctx.beginPath();
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            // Vertical lines
+            for(let x = margin; x <= margin + width; x += gridSize) {
+                ctx.moveTo(x, margin);
+                ctx.lineTo(x, margin + height);
+            }
+            // Horizontal lines
+            for(let y = margin; y <= margin + height; y += gridSize) {
+                ctx.moveTo(margin, y);
+                ctx.lineTo(margin + width, y);
+            }
+            ctx.stroke();
+        }
+
+        // ----------------------- Initialize Graph -----------------------
+        drawGraph();
+
+        // Re-draw graph when independent variable or data changes
+        // Event listeners already trigger drawGraph via handleInputChange
+    </script>
+</body>
+</html>
