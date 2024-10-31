@@ -223,6 +223,26 @@ button {
     // Add event listeners to unlock audio on user interaction
     document.body.addEventListener('click', unlockAudio, { once: true });
     document.body.addEventListener('touchstart', unlockAudio, { once: true });
+
+    // **New Addition:** Array to track cloned sounds
+    const clonedSounds = [];
+
+    // **New Addition:** Helper function to play sounds with cloning
+    function playSound(audio, track=true) {
+        const clone = audio.cloneNode();
+        clone.play().catch((error) => {
+            console.warn('Sound playback was prevented:', error);
+        });
+        if (track) {
+            clonedSounds.push(clone);
+            clone.addEventListener('ended', () => {
+                const index = clonedSounds.indexOf(clone);
+                if (index > -1) {
+                    clonedSounds.splice(index, 1);
+                }
+            });
+        }
+    }
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -326,11 +346,8 @@ function initGame() {
 
     animate();
 
-    // Play the start sound when the game initializes
-    startSound.currentTime = 0; // Ensure the sound starts from the beginning
-    startSound.play().catch((error) => {
-        console.warn('Start sound playback was prevented:', error);
-    });
+    // **Change for Sound on Init:** Play startSound when the game initializes
+    playSound(startSound, false); // Do not track startSound clones
 
     // Add event listener to update steps when code changes
     codeInput.addEventListener('input', updateStepsCount);
@@ -719,11 +736,8 @@ async function runCode() {
     // **Revision 2:** Disable the "Run Code" button after it's pressed
     document.getElementById('run-button').disabled = true;
 
-    // **Change for Sound on Run Code Press:** Play startSound when "Run Code" is pressed
-    startSound.currentTime = 0; // Reset to start
-    startSound.play().catch((error) => {
-        console.warn('Start sound playback was prevented:', error);
-    });
+    // **Remove Sound Play from Run Code:** 
+    // Removed startSound.play() from here as per user requirement
 
     // Clear previous timeouts
     commandTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
@@ -874,11 +888,8 @@ function checkHulaHoops() {
 
                 messageDiv.textContent = `Congratulations! You've passed through hoop ${currentHoop}!`;
                 messageDiv.classList.add('blink');
-                // Play "bonus" sound
-                hoopSound.currentTime = 0; // Reset sound to play from start
-                hoopSound.play().catch((error) => {
-                    console.warn('Hoop sound playback was prevented:', error);
-                });
+                // **Change for Multiple Plays:** Use playSound to allow multiple plays
+                playSound(hoopSound);
                 setTimeout(() => {
                     messageDiv.classList.remove('blink');
                 }, 3000);
@@ -894,10 +905,7 @@ function checkHulaHoops() {
                 const hoopNumber = index + 1;
                 if (hoopNumber > currentHoop && !alertShown) {
                     alert(`Please pass through hoop ${currentHoop} first!`);
-                    warn1Sound.currentTime = 0; // Reset sound
-                    warn1Sound.play().catch((error) => {
-                        console.warn('Warning1 sound playback was prevented:', error);
-                    }); // Play warning sound for out-of-order hoop
+                    playSound(warn1Sound);
                     alertShown = true;
                 }
                 // If not the correct hoop, do not turn it green and allow the user to continue
@@ -922,20 +930,14 @@ function checkGoal() {
     if (dronePosition.distanceTo(goalPosition) < 1.5) { // Adjusted distance threshold
         if (currentHoop <= obstacles.length) {
             alert(`You've reached the goal without passing all hoops! Please complete all hoops first.`);
-            warn2Sound.currentTime = 0; // Reset sound
-            warn2Sound.play().catch((error) => {
-                console.warn('Warning2 sound playback was prevented:', error);
-            }); // Play warning sound for reaching goal prematurely
+            playSound(warn2Sound);
         } else {
             messageDiv.textContent = "🎉 Congratulations! You've successfully navigated all hoops and reached the goal! 🎉";
             
             messageDiv.classList.add('blink', 'color-change');
             goalMarker.material.color.setHex(0x00ff00);
-            // Play "Do-Re-Mi-Fa-So-La-Ti-Do" sound
-            goalSound.currentTime = 0; // Reset sound to play from start
-            goalSound.play().catch((error) => {
-                console.warn('Goal sound playback was prevented:', error);
-            });
+            // **Change for Multiple Plays:** Use playSound to allow multiple plays
+            playSound(goalSound);
             blinkGoal();
             setTimeout(() => {
                 messageDiv.classList.remove('blink', 'color-change');
@@ -1007,11 +1009,14 @@ function homePosition() {
     // Do NOT reset Steps count upon pressing "Home" as per instructions
     // Steps count will remain as is
 
-    // **Change for Sound on Home Press:** Play startSound when "Home" is pressed
-    startSound.currentTime = 0; // Reset to start
-    startSound.play().catch((error) => {
-        console.warn('Start sound playback was prevented:', error);
+    // **New Addition:** Reset all sound effects except "start.mp3"
+    clonedSounds.forEach(clone => {
+        clone.pause();
     });
+    clonedSounds.length = 0;
+
+    // **Remove Sound Play from Home Position:** 
+    // Removed startSound.play() from here as per user requirement
 
     // Start blinking the first hoop again
     if (obstacles.length > 0) {
@@ -1059,11 +1064,8 @@ function changeLevel() {
         resetGameForNewLevel();
         // **Revision 1:** Unlock the "Run Code" button when a new level is selected
         document.getElementById('run-button').disabled = false;
-        // Play the start sound when a new level is selected
-        startSound.currentTime = 0; // Ensure the sound starts from the beginning
-        startSound.play().catch((error) => {
-            console.warn('Start sound playback was prevented:', error);
-        });
+        // **Change for Sound on Level Change:** Play startSound when a new level is entered
+        playSound(startSound, false); // Do not track startSound clones
     }
 }
 
@@ -1123,12 +1125,6 @@ function resetGameForNewLevel() {
 
     // Do NOT reset code input to preserve user code
     // codeInput.value = ''; // Already handled above
-
-    // **Change for Sound on Level Change:** Play startSound after resetting
-    startSound.currentTime = 0; // Reset to start
-    startSound.play().catch((error) => {
-        console.warn('Start sound playback was prevented:', error);
-    });
 
     // Start blinking the first hoop again
     if (obstacles.length > 0) {
