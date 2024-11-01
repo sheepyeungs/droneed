@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Drone Physics Interactive Table</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            table-layout: fixed;
+        }
+        th, td {
+            border: 1px solid #dddddd;
+            text-align: center;
+            padding: 8px;
+            word-wrap: break-word;
+            font-size: 14px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        th.sub-header {
+            font-size: 0.9em;
+        }
+        /* Align Status column to the left */
+        td:first-child {
+            text-align: left;
+        }
+        /* Outline F1 and F2 columns */
+        .f1-column, .f2-column {
+            border: 3px solid;
+        }
+        .f1-column {
+            border-color: orange;
+        }
+        .f2-column {
+            border-color: blue;
+        }
+        /* Adjust Action and Dimension columns */
+        th.action, th.action-subcol, td.action-subcol {
+            width: 60px; /* Decreased width for Action columns */
+            font-size: 0.9em;
+        }
+        th.dimension, th.dimension-subcol, td.dimension-subcol {
+            width: 100px; /* Increased width for Dimension columns */
+            font-size: 0.9em;
+        }
+        select {
+            width: 100%;
+            padding: 4px;
+            font-size: 14px;
+            transition: border 0.3s ease, box-shadow 0.3s ease;
+        }
+        select:focus {
+            border: 2px solid #4CAF50;
+            box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+        }
+        .correct {
+            background-color: #d4edda !important;
+            animation: pulse 1s;
+            transition: background-color 0.5s ease;
+        }
+        .incorrect {
+            background-color: #f8d7da !important;
+            animation: shake 0.5s;
+            transition: background-color 0.5s ease;
+        }
+        /* Pulse Animation */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+        /* Shake Animation */
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+        /* Fade-In Animation for Icons */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .grade-icon {
+            opacity: 0;
+            display: inline-block;
+            animation: fadeIn 0.5s forwards;
+        }
+        /* Hover Effect */
+        tr:hover {
+            background-color: #f1f1f1;
+            transform: scale(1.02);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        /* Tooltip Styles */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: #555;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%; /* Position above the element */
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        /* Tooltip Arrow */
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%; /* At the bottom of the tooltip */
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #555 transparent transparent transparent;
+        }
+        /* Progress Bar Styles */
+        #progressContainer {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 25px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        #progressBar {
+            width: 0%;
+            height: 20px;
+            background-color: #4CAF50;
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            transition: width 0.5s ease;
+        }
+    </style>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+<h2>Drone Dynamics Dashboard</h2>
+<p>Select the appropriate forces and motion concepts for each drone status.</p>
+<p><strong>(<font color=red>x-axis:right +ve, left -ve;</font> <font color=blue>y-axis: forward +ve, backward -ve;</font> <font color=green>z-axis: up +ve, down -ve.</font>)</strong></p>
+
+<!-- Progress Bar -->
+<div id="progressContainer">
+    <div id="progressBar">0%</div>
+</div>
+
+<table id="physicsTable">
+    <thead>
+        <tr>
+            <th rowspan="2" style="width: 17%;">Status</th>
+            <th colspan="4" class="f1-column">Force 1</th>
+            <th rowspan="2" style="width: 5%;">vs</th>
+            <th colspan="4" class="f2-column">Force 2</th>
+            <th rowspan="2" style="width: 13%;">Action-Reaction Pair?
+                <span class="tooltip">ℹ️
+                    <span class="tooltiptext">
+                        Indicates if the selected forces form an action-reaction pair as per Newton's Third Law.
+                    </span>
+                </span>
+            </th>
+        </tr>
+        <tr>
+            <!-- F1 Subcolumns -->
+            <th class="action-subcol sub-header">Obj 1</th>
+            <th class="action-subcol sub-header">Action</th>
+            <th class="action-subcol sub-header">Obj 2</th>
+            <th class="dimension-subcol sub-header">Dimension</th>
+            <!-- F2 Subcolumns -->
+            <th class="action-subcol sub-header">Obj 1</th>
+            <th class="action-subcol sub-header">Action</th>
+            <th class="action-subcol sub-header">Obj 2</th>
+            <th class="dimension-subcol sub-header">Dimension</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Rows will be dynamically generated -->
+    </tbody>
+</table>
+
+<!-- Audio Elements -->
+<audio id="bonusSound" src="bonus.mp3"></audio>
+<audio id="sweetSound" src="sweet.mp3"></audio>
+
+<!-- Canvas Confetti Library -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+<script>
+    const statuses = [
+        "Q1. Stay on ground with rotors off.",
+        "Q2. Stay on ground with rotors on.",
+        "Q3. Hover in air at an altitude.",
+        "Q4. Hover in air without pitching.",
+        "Q5. Hover in air without rolling.",
+        "Q6. Hover in air without yawing.",
+        "Q7. Pitch forward in air.",
+        "Q8. Roll right in air.",
+        "Q9. Yaw left in air.",
+        "Q10. Throttling up",
+        "Q11. Throttling down",
+        "Q12. Free fall in air",
+        "Q13. Yaw left on ground with A, D only.",
+        "Q14. Yaw right on ground with B only."
+    ];
+
+    const optionsObj = [
+        "drone",
+        "Earth",
+        "air",
+        "A",
+        "B",
+        "C",
+        "D",
+        "A, B",
+        "A, C",
+        "A, D",
+        "B, C",
+        "B, D",
+        "C, D"
+    ];
+
+    const optionsDimension = [
+        "x (+ve)",
+        "x (-ve)",
+        "y (+ve)",
+        "y (-ve)",
+        "z (+ve)",
+        "z (-ve)",
+        "xy (CW)",
+        "xy (CCW)"
+    ];
+
+    const optionsVs = [
+        "<",
+        "=",
+        ">"
+    ];
+
+    const optionsActionReaction = [
+        "YES (X on Y, Y on X)",
+        "NO (acted on same body)"
+    ];
+
+    // Correct answers mapping
+    const correctAnswers = {
+        "Q1. Stay on ground with rotors off.": [
+            [
+                {obj1: "Earth", action: "acted on", obj2: "drone", dimension: "z (-ve)"},
+                {obj1: "drone", action: "acted on", obj2: "Earth", dimension: "z (+ve)"},
+                "=",
+                "YES (X on Y, Y on X)"
+            ],
+            [
+                {obj1: "drone", action: "acted on", obj2: "Earth", dimension: "z (+ve)"},
+                {obj1: "Earth", action: "acted on", obj2: "drone", dimension: "z (-ve)"},
+                "=",
+                "YES (X on Y, Y on X)"
+            ]
+        ],
+        "Q2. Stay on ground with rotors on.": [
+            [
+                {obj1: "air", action: "acted on", obj2: "drone", dimension: "z (+ve)"},
+                {obj1: "Earth", action: "acted on", obj2: "drone", dimension: "z (-ve)"},
+                "<",
+                "NO (acted on same body)"
+            ],
+            [
+                {obj1: "Earth", action: "acted on", obj2: "drone", dimension: "z (-ve)"},
+                {obj1: "air", action: "acted on", obj2: "drone", dimension: "z (+ve)"},
+                ">",
+                "NO (acted on same body)"
+            ]
+        ],
+        "Q3. Hover in air at an altitude.": [
+            [
+                {obj1: "air", action: "acted on", obj2: "drone", dimension: "z (+ve)"},
+                {obj1: "Earth", action: "acted on", obj2: "drone", dimension: "z (-ve)"},
+                "=",
+                "NO (acted on same body)"
+            ],
+            [
+                {obj1: "Earth", action: "acted on", obj2: "drone", dimension: "z (-ve)"},
+                {obj1: "air", action: "acted on", obj2: "drone", dimension: "z (+ve)"},
+                "=",
+                "NO (acted on same body)"
+            ]
+        ],
+        "Q4. Hover in air without pitching.": [
+            [
+                {obj1: "A, B", action: "acted on", obj2: "drone", dimension: "y (-ve)"},
+                {obj1: "C, D", action: "acted on", obj2: "drone", dimension: "y (+ve)"},
+                "=",
+                "NO (acted on same body)"
+            ],
+            [
+                {obj1: "C, D", action: "acted on", obj2: "drone", dimension: "y (+ve)"},
+                {obj1: "A, B", action: "acted on", obj2: "drone", dimension: "y (-ve)"},
+                "=",
+                "NO (acted on same body)"
+            ]
+        ],
+        "Q5. Hover in air without rolling.": [
+            [
+                {obj1: "A, C", action: "acted on", obj2: "drone", dimension: "x (+ve)"},
+                {obj1: "B, D", action: "acted on", obj2: "drone", dimension: "x (-ve)"},
+                "=",
+                "NO (acted on same body)"
+            ],
+            [
+                {obj1: "B, D", action: "acted on", obj2: "drone", dimension: "x (-ve)"},
+                {obj1: "A, C", action: "acted on", obj2: "drone", dimension: "x (+ve)"},
+                "=",
+                "NO (acted on same body)"
+            ]
+        ],
+        "Q6. Hover in air without yawing.": [
+            [
+                {obj1: "A, D", action: "acted on", obj2: "drone", dimension: "xy (CW)"},
+                {obj1: "B, C", action: "acted on", obj2: "drone", dimension: "xy (CCW)"},
+                "=",
+                "NO (acted on same body)"
+            ],
+            [
+                {obj1: "B, C", action: "acted on", obj2: "drone", dimension: "xy (CCW)"},
+                {obj1: "A, D", action: "acted on", obj2: "drone", dimension: "xy (CW)"},
+                "=",
+                "NO (acted on same body)"
+            ]
+        ],
+        "Q7. Pitch forward in air.": [
+            [
+                {obj1: "A, B", action: "acted on", obj2: "drone", dimension: "y (-ve)"},
+                {obj1: "C, D", action: "acted on", obj2: "drone", dimension: "y (+ve)"},
+                "<",
+                "NO (acted on same body)"
+            ],
+            [
+                {obj1: "C, D", action: "acted on", obj2: "drone", dimension: "y (+ve)"},
+                {obj1: "A, B", action: "acted on", obj2: "drone", dimension: "y (-ve)"},
+                ">",
+                "NO (acted on same body)"
+            ]
+        ],
+        "Q8. Roll right in air.": [
+            [
+                {obj1: "A, C", action: "acted on", obj2: "drone", dimension: "x (+ve)"},
+                {obj1: "B, D", action: "acted on", obj2: "drone", dimension: "x (-ve)"},
+                ">",
+                "NO (acted on same body)"
+            ],
+            [
+                {obj1: "B, D", action: "acted on", obj2: "drone", dimension: "x (-ve)"},
+                {obj1: "A, C", action: "acted on", obj2: "drone", dimension: "x (+ve)"},
+                "<",
+                "NO (acted on same body)"
+            ]
+        ],
+        "Q9. Yaw left in air.": [
+            [
+                {obj1: "A, D", action: "acted on", obj2: "drone", dimension: "xy (CW)"},
+                {obj1: "B, C", action: "acted on", obj2: "drone", dimension: "xy (CCW)"},
+                ">",
+                "NO (acted on same body)"
+            ],
+            [
+                {obj1: "B, C", action: "acted on", obj2: "drone", dimension: "xy (CCW)"},
+                {obj1: "A, D", action: "acted on", obj2: "drone", dimension: "xy (CW)"},
+                "<",
+                "NO (acted on same body)"
+            ]
+        ],
+        "Q10. Throttling up": [
+            [
+                {obj1: "air", action: "acted on", obj2: "drone", dimension: "z (+ve)"},
+                {obj1: "Earth", action: "acted on", obj2: "drone", dimension: "z (-ve)"},
+                ">",
+                "NO (acted on same body)"
+            ],
+            [
+                {obj1: "Earth", action: "acted on", obj2: "drone", dimension: "z (-ve)"},
+                {obj1: "air", action: "acted on", obj2: "drone", dimension: "z (+ve)"},
+                "<",
+                "NO (acted on same body)"
+            ]
+        ],
+        "Q11. Throttling down": [
+            [
+                {obj1: "air", action: "acted on", obj2: "drone", dimension: "z (+ve)"},
+                {obj1: "Earth", action: "acted on", obj2: "drone", dimension: "z (-ve)"},
+                "<",
+                "NO (acted on same body)"
+            ],
+            [
+                {obj1: "Earth", action: "acted on", obj2: "drone", dimension: "z (-ve)"},
+                {obj1: "air", action: "acted on", obj2: "drone", dimension: "z (+ve)"},
+                ">",
+                "NO (acted on same body)"
+            ]
+        ],
+        "Q12. Free fall in air": [
+            [
+                {obj1: "Earth", action: "acted on", obj2: "drone", dimension: "z (-ve)"},
+                {obj1: "drone", action: "acted on", obj2: "Earth", dimension: "z (+ve)"},
+                "=",
+                "YES (X on Y, Y on X)"
+            ],
+            [
+                {obj1: "drone", action: "acted on", obj2: "Earth", dimension: "z (+ve)"},
+                {obj1: "Earth", action: "acted on", obj2: "drone", dimension: "z (-ve)"},
+                "=",
+                "YES (X on Y, Y on X)"
+            ]
+        ],
+        "Q13. Yaw left on ground with A, D only.": [
+            [
+                {obj1: "A, D", action: "acted on", obj2: "drone", dimension: "xy (CW)"},
+                {obj1: "drone", action: "acted on", obj2: "A, D", dimension: "xy (CCW)"},
+                "=",
+                "YES (X on Y, Y on X)"
+            ],
+            [
+                {obj1: "drone", action: "acted on", obj2: "A, D", dimension: "xy (CCW)"},
+                {obj1: "A, D", action: "acted on", obj2: "drone", dimension: "xy (CW)"},
+                "=",
+                "YES (X on Y, Y on X)"
+            ]
+        ],
+        "Q14. Yaw right on ground with B only.": [
+            [
+                {obj1: "B", action: "acted on", obj2: "drone", dimension: "xy (CCW)"},
+                {obj1: "drone", action: "acted on", obj2: "B", dimension: "xy (CW)"},
+                "=",
+                "YES (X on Y, Y on X)"
+            ],
+            [
+                {obj1: "drone", action: "acted on", obj2: "B", dimension: "xy (CW)"},
+                {obj1: "B", action: "acted on", obj2: "drone", dimension: "xy (CCW)"},
+                "=",
+                "YES (X on Y, Y on X)"
+            ]
+        ]
+    };
+
+    // Initialize the table
+    const tbody = document.querySelector('#physicsTable tbody');
+
+    statuses.forEach((status, index) => {
+        const tr = document.createElement('tr');
+        tr.style.setProperty('--i', index);
+
+        // Status cell
+        const tdStatus = document.createElement('td');
+        tdStatus.textContent = status;
+        tr.appendChild(tdStatus);
+
+        // F1 Obj1
+        const tdF1Obj1 = document.createElement('td');
+        const selectF1Obj1 = createSelect(optionsObj);
+        selectF1Obj1.dataset.status = status;
+        tdF1Obj1.classList.add('f1-column', 'action-subcol');
+        tr.appendChild(tdF1Obj1);
+        tdF1Obj1.appendChild(selectF1Obj1);
+
+        // F1 Action
+        const tdF1Action = document.createElement('td');
+        tdF1Action.textContent = "acted on";
+        tdF1Action.classList.add('f1-column', 'action-subcol');
+        tr.appendChild(tdF1Action);
+
+        // F1 Obj2
+        const tdF1Obj2 = document.createElement('td');
+        const selectF1Obj2 = createSelect(optionsObj);
+        selectF1Obj2.dataset.status = status;
+        tdF1Obj2.classList.add('f1-column', 'action-subcol');
+        tr.appendChild(tdF1Obj2);
+        tdF1Obj2.appendChild(selectF1Obj2);
+
+        // F1 Dimension
+        const tdF1Dim = document.createElement('td');
+        const selectF1Dim = createSelect(optionsDimension);
+        selectF1Dim.dataset.status = status;
+        tdF1Dim.classList.add('f1-column', 'dimension-subcol');
+        tr.appendChild(tdF1Dim);
+        tdF1Dim.appendChild(selectF1Dim);
+
+        // vs
+        const tdVs = document.createElement('td');
+        const selectVs = createSelect(optionsVs);
+        selectVs.dataset.status = status;
+        tr.appendChild(tdVs);
+        tdVs.appendChild(selectVs);
+
+        // F2 Obj1
+        const tdF2Obj1 = document.createElement('td');
+        const selectF2Obj1 = createSelect(optionsObj);
+        selectF2Obj1.dataset.status = status;
+        tdF2Obj1.classList.add('f2-column', 'action-subcol');
+        tr.appendChild(tdF2Obj1);
+        tdF2Obj1.appendChild(selectF2Obj1);
+
+        // F2 Action
+        const tdF2Action = document.createElement('td');
+        tdF2Action.textContent = "acted on";
+        tdF2Action.classList.add('f2-column', 'action-subcol');
+        tr.appendChild(tdF2Action);
+
+        // F2 Obj2
+        const tdF2Obj2 = document.createElement('td');
+        const selectF2Obj2 = createSelect(optionsObj);
+        selectF2Obj2.dataset.status = status;
+        tdF2Obj2.classList.add('f2-column', 'action-subcol');
+        tr.appendChild(tdF2Obj2);
+        tdF2Obj2.appendChild(selectF2Obj2);
+
+        // F2 Dimension
+        const tdF2Dim = document.createElement('td');
+        const selectF2Dim = createSelect(optionsDimension);
+        selectF2Dim.dataset.status = status;
+        tdF2Dim.classList.add('f2-column', 'dimension-subcol');
+        tr.appendChild(tdF2Dim);
+        tdF2Dim.appendChild(selectF2Dim);
+
+        // Action-Reaction Pair?
+        const tdAR = document.createElement('td');
+        const selectAR = createSelect(optionsActionReaction);
+        selectAR.dataset.status = status;
+        tr.appendChild(tdAR);
+        tdAR.appendChild(selectAR);
+
+        tbody.appendChild(tr);
+    });
+
+    // Function to create a select element with options
+    function createSelect(options) {
+        const select = document.createElement('select');
+        const defaultOption = document.createElement('option');
+        defaultOption.value = "";
+        defaultOption.textContent = "--Select--";
+        select.appendChild(defaultOption);
+        options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt;
+            option.textContent = opt;
+            select.appendChild(option);
+        });
+        // Add event listener to check answer when selection changes
+        select.addEventListener('change', checkRow);
+        return select;
+    }
+
+    // Function to check the row validity
+    function checkRow(event) {
+        const select = event.target;
+        const status = select.dataset.status;
+        const tr = select.closest('tr');
+
+        // Get all select elements in the row
+        const selects = tr.querySelectorAll('select');
+        for(let s of selects){
+            if(s.value === ""){
+                // If any selection is not made, do not grade yet
+                tr.classList.remove('correct', 'incorrect');
+                const existingIcon = tr.querySelector('.grade-icon');
+                if(existingIcon) {
+                    existingIcon.remove();
+                }
+                return;
+            }
+        }
+
+        // Get user's selections
+        const userF1Obj1 = tr.querySelectorAll('select')[0].value;
+        const userF1Obj2 = tr.querySelectorAll('select')[1].value;
+        const userF1Dim = tr.querySelectorAll('select')[2].value;
+        const userV = tr.querySelectorAll('select')[3].value;
+        const userF2Obj1 = tr.querySelectorAll('select')[4].value;
+        const userF2Obj2 = tr.querySelectorAll('select')[5].value;
+        const userF2Dim = tr.querySelectorAll('select')[6].value;
+        const userAR = tr.querySelectorAll('select')[7].value;
+
+        // Retrieve correct answers for the status
+        const correctPairs = correctAnswers[status];
+        let isCorrect = false;
+
+        // Iterate over possible correct answer pairs
+        for(let pair of correctPairs){
+            const [correctF1, correctF2, correctVs, correctAR] = pair;
+            if(
+                userF1Obj1 === correctF1.obj1 &&
+                userF1Obj2 === correctF1.obj2 &&
+                userF1Dim === correctF1.dimension &&
+                userV === correctVs &&
+                userF2Obj1 === correctF2.obj1 &&
+                userF2Obj2 === correctF2.obj2 &&
+                userF2Dim === correctF2.dimension &&
+                userAR === correctAR
+            ){
+                isCorrect = true;
+                break;
+            }
+        }
+
+        // Grade the row
+        if(isCorrect){
+            if(!tr.classList.contains('correct')){
+                // Play bonus sound only once when the row becomes correct
+                document.getElementById('bonusSound').currentTime = 0;
+                document.getElementById('bonusSound').play();
+
+                // Append checkmark icon
+                const existingIcon = tr.querySelector('.grade-icon');
+                if(existingIcon) {
+                    existingIcon.remove();
+                }
+                const gradeIcon = document.createElement('i');
+                gradeIcon.classList.add('fas', 'fa-check-circle', 'grade-icon');
+                gradeIcon.style.color = 'green';
+                gradeIcon.style.marginLeft = '8px';
+                tr.querySelector('td:last-child').appendChild(gradeIcon);
+            }
+            tr.classList.add('correct');
+            tr.classList.remove('incorrect');
+        } else {
+            tr.classList.add('incorrect');
+            tr.classList.remove('correct');
+
+            // Append crossmark icon
+            const existingIcon = tr.querySelector('.grade-icon');
+            if(existingIcon) {
+                existingIcon.remove();
+            }
+            const gradeIcon = document.createElement('i');
+            gradeIcon.classList.add('fas', 'fa-times-circle', 'grade-icon');
+            gradeIcon.style.color = 'red';
+            gradeIcon.style.marginLeft = '8px';
+            tr.querySelector('td:last-child').appendChild(gradeIcon);
+        }
+
+        // Check if all rows are correct
+        const allRows = document.querySelectorAll('#physicsTable tbody tr');
+        let allCorrect = true;
+        allRows.forEach(row => {
+            if(!row.classList.contains('correct')){
+                allCorrect = false;
+            }
+        });
+
+        if(allCorrect){
+            // Play sweet sound
+            document.getElementById('sweetSound').currentTime = 0;
+            document.getElementById('sweetSound').play();
+
+            // Launch confetti
+            confetti({
+                particleCount: 200,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+        }
+
+        // Update progress bar
+        const correctRows = document.querySelectorAll('#physicsTable tbody tr.correct').length;
+        const totalRows = statuses.length;
+        const progressPercent = (correctRows / totalRows) * 100;
+        const progressBar = document.getElementById('progressBar');
+        progressBar.style.width = progressPercent + '%';
+        progressBar.textContent = Math.round(progressPercent) + '%';
+    }
+</script>
+
+</body>
+</html>
