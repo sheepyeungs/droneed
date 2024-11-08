@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-<!-- Previous head section remains the same until the style section -->
 <head>
     <title>Aerial Photography FOV Simulator</title>
     <style>
@@ -67,20 +66,21 @@
 </head>
 <body>
     <div id="info">
-        Camera Altitude: <span id="altitude">0</span>m<br>
+        Drone Altitude: <span id="altitude">0</span>m<br>
         Ground Coverage Width: <span id="width">0</span>m<br>
         Ground Coverage Depth: <span id="depth">0</span>m<br>
-        Angle of View: <span id="aov">0</span>°<br>
+        Angle of View (H): <span id="aov">0</span>°<br>
         Aspect Ratio: <span id="aspect">4:3</span>
     </div>
     <div id="controls">
         <div class="control-group">
-            <label>Angle of View (30° - 100°)</label>
+            <label>Angle of View (H) (30° - 100°)</label>
             <input type="range" id="aovSlider" min="30" max="100" value="60" step="1">
         </div>
         <div class="control-group">
-            <label>Altitude (10-200m)</label>
-            <input type="range" id="altitudeSlider" min="10" max="200" value="20" step="1">
+            <label>Altitude (0-300m)</label>
+            <!-- Change 3: Allow altitude starting from 0 and set default value to 0 -->
+            <input type="range" id="altitudeSlider" min="0" max="300" value="0" step="1">
         </div>
         <div class="control-group">
             <label>Aspect Ratio</label>
@@ -93,20 +93,22 @@
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // Previous variable declarations remain the same
         let scene, camera, renderer, controls;
-        let droneCam, groundRect, pyramidLines, centerLine, cityGroup;
-        let cameraDistance = 50;
+        let droneCam, groundRect, pyramidLines, centerLine, cityGroup, fovOutline;
+        let cameraDistance = 150; // Increased default distance for better visualization
         let cameraAngle = Math.PI / 4;
         let cameraHeight = 0.7;
         let isDragging = false;
         let previousMouseX, previousMouseY;
         let lights = [];
 
+        // Define minimum FOV size to ensure visibility at ground level
+        const MIN_FOV_SIZE = 10; // in meters
+
         function createQuadcopter() {
             const drone = new THREE.Group();
 
-            const bodyGeometry = new THREE.BoxGeometry(6, 1.5, 6);
+            const bodyGeometry = new THREE.BoxGeometry(8, 2, 8);
             const bodyMaterial = new THREE.MeshBasicMaterial({ 
                 color: 0x0000ff,
                 transparent: true,
@@ -115,14 +117,14 @@
             const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
             drone.add(body);
 
-            const propellerGeometry = new THREE.BoxGeometry(5, 0.2, 0.4);
+            const propellerGeometry = new THREE.BoxGeometry(7, 0.2, 0.4);
             const propellerMaterial = new THREE.MeshBasicMaterial({ color: 0x888888 });
             
             const positions = [
-                { x: -3, z: -3, clockwise: true, color: 0xff0000 },
-                { x: 3, z: -3, clockwise: false, color: 0xff0000 },
-                { x: -3, z: 3, clockwise: false, color: 0x00ff00 },
-                { x: 3, z: 3, clockwise: true, color: 0x00ff00 }
+                { x: -4, z: -4, clockwise: true, color: 0xff0000 },
+                { x: 4, z: -4, clockwise: false, color: 0xff0000 },
+                { x: -4, z: 4, clockwise: false, color: 0x00ff00 },
+                { x: 4, z: 4, clockwise: true, color: 0x00ff00 }
             ];
 
             positions.forEach(pos => {
@@ -131,7 +133,7 @@
                 propeller.clockwise = pos.clockwise;
                 drone.add(propeller);
 
-                const lightGeometry = new THREE.SphereGeometry(0.3, 8, 8);
+                const lightGeometry = new THREE.SphereGeometry(0.8, 16, 16);
                 const lightMaterial = new THREE.MeshBasicMaterial({ color: pos.color });
                 const light = new THREE.Mesh(lightGeometry, lightMaterial);
                 light.position.set(pos.x, 0, pos.z);
@@ -143,8 +145,55 @@
             return drone;
         }
 
+        function createTree(x, z) {
+            const tree = new THREE.Group();
+            
+            // Tree trunk
+            const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.7, 4, 8);
+            const trunkMaterial = new THREE.MeshPhongMaterial({ color: 0x4d2926 });
+            const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+            trunk.position.y = 2;
+            tree.add(trunk);
+            
+            // Tree crown
+            const crownGeometry = new THREE.ConeGeometry(3, 6, 8);
+            const crownMaterial = new THREE.MeshPhongMaterial({ color: 0x0e5c0e });
+            const crown = new THREE.Mesh(crownGeometry, crownMaterial);
+            crown.position.y = 6;
+            tree.add(crown);
+            
+            tree.position.set(x, 0, z);
+            return tree;
+        }
+
+        function createRoad(startX, startZ, endX, endZ, width) {
+            const road = new THREE.Group();
+            
+            const dx = endX - startX;
+            const dz = endZ - startZ;
+            const length = Math.sqrt(dx * dx + dz * dz);
+            const angle = Math.atan2(dz, dx);
+            
+            const roadGeometry = new THREE.PlaneGeometry(length, width);
+            const roadMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x333333,
+                side: THREE.DoubleSide 
+            });
+            const roadMesh = new THREE.Mesh(roadGeometry, roadMaterial);
+            
+            roadMesh.rotation.x = -Math.PI / 2;
+            roadMesh.rotation.z = -angle;
+            roadMesh.position.set(startX + dx/2, 0.1, startZ + dz/2);
+            
+            road.renderOrder = 0; // Ensure roads have default render order
+
+            roadMesh.layers.enable(0); // Ensure roads are in default layer
+
+            road.add(roadMesh);
+            return road;
+        }
+
         function init() {
-            // Previous scene setup remains the same until the buildings creation
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x222222);
             
@@ -155,125 +204,205 @@
             renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
+            // Create ground plane with grass-like color
+            const groundGeometry = new THREE.PlaneGeometry(800, 800);
+            const groundMaterial = new THREE.MeshPhongMaterial({
+                color: 0x1a5c1a,
+                side: THREE.DoubleSide
+            });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -0.1;
+            scene.add(ground);
+
+            // Change 4: Add pale orange color to FOV visualization plane
             const rectGeometry = new THREE.PlaneGeometry(1, 1);
             const rectMaterial = new THREE.MeshBasicMaterial({
-                color: 0x00ff00,
+                color: 0xffcc99, // Pale orange
                 transparent: true,
-                opacity: 0.15,
-                side: THREE.DoubleSide
+                opacity: 0.1, // Increased opacity for better visibility
+                side: THREE.DoubleSide,
+                depthTest: true,    // Enable depth testing
+                depthWrite: false    // Do not write to depth buffer
             });
             groundRect = new THREE.Mesh(rectGeometry, rectMaterial);
             groundRect.rotation.x = -Math.PI / 2;
-            groundRect.position.set(0, 0, 0);
+            groundRect.position.set(0, 0.02, 0); // Slightly above ground to prevent z-fighting
+            groundRect.renderOrder = 0; // Render first
             scene.add(groundRect);
 
-            const gridHelper = new THREE.GridHelper(400, 40, 0x444444, 0x333333);
+            // Add outline to the FOV rectangle for enhanced visibility
+            const outlineGeometry = new THREE.PlaneGeometry(1.002, 1.002); // Slightly larger to prevent z-fighting
+            const outlineMaterial = new THREE.MeshBasicMaterial({
+                color: 0xff9900, // Darker orange for outline
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.2,
+                depthTest: true,    // Enable depth testing
+                depthWrite: false    // Do not write to depth buffer
+            });
+            fovOutline = new THREE.Mesh(outlineGeometry, outlineMaterial);
+            fovOutline.rotation.x = -Math.PI / 2;
+            fovOutline.position.set(0, 0.022, 0); // Slightly above the FOV rectangle
+            fovOutline.renderOrder = 0; // Render first
+            scene.add(fovOutline);
+
+            // Add grid
+            const gridHelper = new THREE.GridHelper(800, 80, 0x444444, 0x333333);
             scene.add(gridHelper);
 
+            // Add axes helper
             const axesHelper = new THREE.AxesHelper(5);
             scene.add(axesHelper);
 
+            // Create city group
             cityGroup = new THREE.Group();
             
-            // Enhanced building creation with more details
-            for (let i = 0; i < 100; i++) {
-                const buildingHeight = Math.random() * 30 + 5;
-                const buildingWidth = Math.random() * 10 + 5;
-                const buildingDepth = Math.random() * 10 + 5;
-                
-                // Main building structure
-                const buildingGeometry = new THREE.BoxGeometry(buildingWidth, buildingHeight, buildingDepth);
-                const buildingMaterial = new THREE.MeshPhongMaterial({
-                    color: new THREE.Color().setHSL(Math.random() * 0.1 + 0.05, 0.3, 0.5),
-                    transparent: true,
-                    opacity: 0.85,
-                    specular: 0x404040,
-                    shininess: 30
-                });
-                const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+            // Change 1: Fixed building positions arranged in a grid
+            const buildingSpacing = 50;
+            const numRows = 14; // Adjusted for approximately 196 buildings
+            const startPos = - (buildingSpacing * (numRows - 1)) / 2;
 
-                // Add windows
-                const windowGeometry = new THREE.BoxGeometry(0.8, 1.2, 0.1);
-                const windowMaterial = new THREE.MeshPhongMaterial({
-                    color: 0xffffcc,
-                    emissive: 0x444444,
-                    transparent: true,
-                    opacity: 0.9
-                });
+            for (let i = 0; i < numRows; i++) {
+                for (let j = 0; j < numRows; j++) {
+                    // Limit total buildings to 200
+                    if (cityGroup.children.length >= 200) break;
 
-                const floors = Math.floor(buildingHeight / 3);
-                const windowsPerSide = Math.floor(buildingWidth / 2);
+                    const x = startPos + i * buildingSpacing + (Math.random() * 10 - 5); // slight randomness
+                    const z = startPos + j * buildingSpacing + (Math.random() * 10 - 5);
 
-                for (let floor = 0; floor < floors; floor++) {
-                    for (let w = 0; w < windowsPerSide; w++) {
-                        const window1 = new THREE.Mesh(windowGeometry, windowMaterial);
-                        window1.position.set(
-                            (w - windowsPerSide/2 + 0.5) * 2,
-                            floor * 3 - buildingHeight/2 + 1.5,
-                            buildingDepth/2 + 0.1
-                        );
-                        building.add(window1);
+                    const isTall = Math.random() < 0.2; // 20% chance for tall buildings
+                    const buildingHeight = isTall ? (Math.random() * 30 + 80) : (Math.random() * 30 + 5);
+                    
+                    const buildingWidth = Math.random() * 15 + 8;
+                    const buildingDepth = Math.random() * 15 + 8;
+                    
+                    const buildingGeometry = new THREE.BoxGeometry(buildingWidth, buildingHeight, buildingDepth);
 
-                        const window2 = window1.clone();
-                        window2.position.z = -buildingDepth/2 - 0.1;
-                        building.add(window2);
-                    }
+                    // Change 2: Enhanced building materials with emissive windows
+                    const windowTexture = new THREE.CanvasTexture(createWindowCanvas(256, 256));
+                    const buildingMaterial = new THREE.MeshPhongMaterial({
+                        map: windowTexture,
+                        color: 0x808080, // Base color
+                        emissive: 0x303030, // Base emissive for general lighting
+                        emissiveMap: windowTexture,
+                        emissiveIntensity: 0.5,
+                        transparent: true,
+                        opacity: 0.7
+                    });
+
+                    const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+
+                    building.position.x = x;
+                    building.position.y = buildingHeight / 2;
+                    building.position.z = z;
+                    
+                    building.renderOrder = 1; // Ensure buildings are rendered after FOV
+                    cityGroup.add(building);
                 }
-
-                // Add roof details
-                const roofGeometry = new THREE.BoxGeometry(buildingWidth + 0.5, 0.5, buildingDepth + 0.5);
-                const roofMaterial = new THREE.MeshPhongMaterial({
-                    color: 0x505050,
-                    shininess: 50
-                });
-                const roof = new THREE.Mesh(roofGeometry, roofMaterial);
-                roof.position.y = buildingHeight/2 + 0.25;
-                building.add(roof);
-
-                building.position.x = Math.random() * 200 - 100;
-                building.position.y = buildingHeight / 2;
-                building.position.z = Math.random() * 200 - 100;
-                building.rotation.y = Math.random() * Math.PI * 2;
-                
-                cityGroup.add(building);
             }
 
+            // Add trees
+            for (let i = 0; i < 500; i++) {
+                const x = Math.random() * 700 - 350;
+                const z = Math.random() * 700 - 350;
+                // Check if position is not too close to buildings
+                let tooClose = false;
+                cityGroup.children.forEach(building => {
+                    const dx = building.position.x - x;
+                    const dz = building.position.z - z;
+                    if (Math.sqrt(dx * dx + dz * dz) < 15) {
+                        tooClose = true;
+                    }
+                });
+                if (!tooClose) {
+                    cityGroup.add(createTree(x, z));
+                }
+            }
+
+            // Add roads
+            const roads = [
+                createRoad(-350, 0, 350, 0, 20),     // Main east-west road
+                createRoad(0, -350, 0, 350, 20),     // Main north-south road
+                createRoad(-250, -250, 250, 250, 15), // Diagonal road
+                createRoad(-250, 250, 250, -250, 15)  // Diagonal road
+            ];
+            roads.forEach(road => cityGroup.add(road));
+
+            // Add park areas
+            const parkGeometry = new THREE.CircleGeometry(50, 32);
+            const parkMaterial = new THREE.MeshPhongMaterial({
+                color: 0x2d5a27,
+                side: THREE.DoubleSide
+            });
+            
+            const parks = [
+                { x: 150, z: 150 },
+                { x: -150, z: -150 },
+                { x: 150, z: -150 },
+                { x: -150, z: 150 }
+            ];
+            
+            parks.forEach(({x, z}) => {
+                const park = new THREE.Mesh(parkGeometry, parkMaterial);
+                park.rotation.x = -Math.PI / 2;
+                park.position.set(x, 0.1, z);
+                cityGroup.add(park);
+                
+                // Add trees in park
+                for (let i = 0; i < 20; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = Math.random() * 40;
+                    const treeX = x + Math.cos(angle) * radius;
+                    const treeZ = z + Math.sin(angle) * radius;
+                    cityGroup.add(createTree(treeX, treeZ));
+                }
+            });
+
+            scene.add(cityGroup);
+
+            // Lighting
             const ambientLight = new THREE.AmbientLight(0x404040);
             scene.add(ambientLight);
 
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-            directionalLight.position.set(1, 1, 1);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+            directionalLight.position.set(100, 200, 100);
             scene.add(directionalLight);
-            
-            scene.add(cityGroup);
 
+            // Create drone
+            // Change 3: Set initial altitude to 0
             droneCam = createQuadcopter();
-            droneCam.position.set(0, 20, 0);
+            droneCam.position.set(0, 0, 0);
             scene.add(droneCam);
 
+            // Create FOV visualization lines
             const linesMaterial = new THREE.LineDashedMaterial({
-                color: 0xffff00,
+                color: 0xffffff, // Changed to white for better contrast
                 dashSize: 2,
                 gapSize: 2,
+                depthTest: false // Ensure lines are visible on top
             });
             const linesGeometry = new THREE.BufferGeometry();
             pyramidLines = new THREE.LineSegments(linesGeometry, linesMaterial);
+            pyramidLines.renderOrder = 2; // Render after roads and buildings
             scene.add(pyramidLines);
 
             const centerLineMaterial = new THREE.LineDashedMaterial({
                 color: 0xff0000,
                 dashSize: 1.0,
                 gapSize: 1.0,
+                depthTest: false // Ensure lines are visible on top
             });
             const centerLineGeometry = new THREE.BufferGeometry();
             centerLine = new THREE.Line(centerLineGeometry, centerLineMaterial);
+            centerLine.renderOrder = 2; // Render after roads and buildings
             scene.add(centerLine);
 
+            // Event listeners
             renderer.domElement.addEventListener('mousedown', onMouseDown);
             renderer.domElement.addEventListener('mousemove', onMouseMove);
             renderer.domElement.addEventListener('mouseup', onMouseUp);
             renderer.domElement.addEventListener('wheel', onMouseWheel);
-
             window.addEventListener('resize', onWindowResize, false);
 
             document.getElementById('aovSlider').addEventListener('input', updateVisualization);
@@ -287,7 +416,38 @@
             updateVisualization();
         }
 
-        // Rest of the functions remain the same
+        // Function to create a canvas texture for window patterns
+        function createWindowCanvas(width, height) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+
+            // Fill base color
+            ctx.fillStyle = '#808080'; // Base building color
+            ctx.fillRect(0, 0, width, height);
+
+            // Create window pattern
+            const windowSize = 20;
+            const padding = 5;
+            ctx.fillStyle = '#303030'; // Base emissive color
+
+            for(let x = padding; x < width; x += windowSize + padding) {
+                for(let y = padding; y < height; y += windowSize + padding) {
+                    // Randomly decide if the window is lit
+                    if (Math.random() > 0.7) {
+                        ctx.fillStyle = '#ffff99'; // Lit window color
+                    } else {
+                        ctx.fillStyle = '#303030'; // Unlit window color
+                    }
+                    ctx.fillRect(x, y, 10, 10);
+                }
+            }
+
+            return canvas;
+        }
+
+        // Rest of the functions remain exactly the same as in the original code
         function onMouseDown(event) {
             isDragging = true;
             previousMouseX = event.clientX;
@@ -300,7 +460,7 @@
             const deltaX = event.clientX - previousMouseX;
             const deltaY = event.clientY - previousMouseY;
 
-            cameraAngle += deltaX * 0.01;
+            cameraAngle += deltaX * 0.005; // Adjusted sensitivity
             cameraHeight = Math.max(0.3, Math.min(2.0, cameraHeight + deltaY * 0.002));
 
             previousMouseX = event.clientX;
@@ -348,7 +508,7 @@
             camera.position.x = cameraDistance * Math.cos(cameraAngle);
             camera.position.z = cameraDistance * Math.sin(cameraAngle);
             camera.position.y = cameraDistance * cameraHeight;
-            camera.lookAt(0, altitude/2, 0);
+            camera.lookAt(droneCam.position.x, altitude, droneCam.position.z);
         }
 
         function updatePyramid() {
@@ -356,8 +516,18 @@
             const aov = parseFloat(document.getElementById('aovSlider').value);
             const aspect = parseFloat(document.getElementById('aspectRatio').value);
             
-            const width = 2 * altitude * Math.tan((aov * Math.PI / 180) / 2);
-            const depth = width / aspect;
+            // Calculate width and depth based on altitude and angle of view
+            let width = 2 * altitude * Math.tan((aov * Math.PI / 180) / 2);
+            let depth = width / aspect;
+
+            // Enforce minimum FOV size
+            if (width < MIN_FOV_SIZE) {
+                width = MIN_FOV_SIZE;
+            }
+            if (depth < MIN_FOV_SIZE) {
+                depth = MIN_FOV_SIZE;
+            }
+
             const halfWidth = width / 2;
             const halfDepth = depth / 2;
 
@@ -389,6 +559,7 @@
 
             pyramidLines.geometry.setAttribute('position', 
                 new THREE.BufferAttribute(positions, 3));
+            pyramidLines.geometry.attributes.position.needsUpdate = true;
             pyramidLines.computeLineDistances();
 
             const centerLinePositions = new Float32Array([
@@ -397,6 +568,7 @@
             ]);
             centerLine.geometry.setAttribute('position',
                 new THREE.BufferAttribute(centerLinePositions, 3));
+            centerLine.geometry.attributes.position.needsUpdate = true;
             centerLine.computeLineDistances();
 
             return { width, depth };
@@ -412,6 +584,10 @@
             const { width, depth } = updatePyramid();
             
             groundRect.scale.set(width, depth, 1);
+            fovOutline.scale.set(width, depth, 1);
+
+            // Update the outline to match the rectangle's scale
+            fovOutline.position.set(0, 0.022, 0); // Maintain slight elevation
             
             document.getElementById('altitude').textContent = altitude.toFixed(1);
             document.getElementById('width').textContent = width.toFixed(1);
