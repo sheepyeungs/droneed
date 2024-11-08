@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html>
+<!-- Previous head section remains the same until the style section -->
+<head>
+    <title>Aerial Photography FOV Simulator</title>
+    <style>
+        body { 
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas { 
+            display: block;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 15px;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            pointer-events: none;
+            border-radius: 5px;
+            line-height: 1.5;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 15px;
+            font-family: Arial, sans-serif;
+            border-radius: 5px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 15px;
+            background: #444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #555;
+        }
+        input[type="range"] {
+            width: 200px;
+        }
+        select {
+            padding: 5px;
+            background: #444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        Camera Altitude: <span id="altitude">0</span>m<br>
+        Ground Coverage Width: <span id="width">0</span>m<br>
+        Ground Coverage Depth: <span id="depth">0</span>m<br>
+        Angle of View: <span id="aov">0</span>°<br>
+        Aspect Ratio: <span id="aspect">4:3</span>
+    </div>
+    <div id="controls">
+        <div class="control-group">
+            <label>Angle of View (30° - 100°)</label>
+            <input type="range" id="aovSlider" min="30" max="100" value="60" step="1">
+        </div>
+        <div class="control-group">
+            <label>Altitude (10-200m)</label>
+            <input type="range" id="altitudeSlider" min="10" max="200" value="20" step="1">
+        </div>
+        <div class="control-group">
+            <label>Aspect Ratio</label>
+            <select id="aspectRatio">
+                <option value="1.333">4:3</option>
+                <option value="1.778">16:9</option>
+                <option value="1.5">3:2</option>
+            </select>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Previous variable declarations remain the same
+        let scene, camera, renderer, controls;
+        let droneCam, groundRect, pyramidLines, centerLine, cityGroup;
+        let cameraDistance = 50;
+        let cameraAngle = Math.PI / 4;
+        let cameraHeight = 0.7;
+        let isDragging = false;
+        let previousMouseX, previousMouseY;
+        let lights = [];
+
+        function createQuadcopter() {
+            const drone = new THREE.Group();
+
+            const bodyGeometry = new THREE.BoxGeometry(6, 1.5, 6);
+            const bodyMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x0000ff,
+                transparent: true,
+                opacity: 0.5 
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            drone.add(body);
+
+            const propellerGeometry = new THREE.BoxGeometry(5, 0.2, 0.4);
+            const propellerMaterial = new THREE.MeshBasicMaterial({ color: 0x888888 });
+            
+            const positions = [
+                { x: -3, z: -3, clockwise: true, color: 0xff0000 },
+                { x: 3, z: -3, clockwise: false, color: 0xff0000 },
+                { x: -3, z: 3, clockwise: false, color: 0x00ff00 },
+                { x: 3, z: 3, clockwise: true, color: 0x00ff00 }
+            ];
+
+            positions.forEach(pos => {
+                const propeller = new THREE.Mesh(propellerGeometry, propellerMaterial);
+                propeller.position.set(pos.x, 0, pos.z);
+                propeller.clockwise = pos.clockwise;
+                drone.add(propeller);
+
+                const lightGeometry = new THREE.SphereGeometry(0.3, 8, 8);
+                const lightMaterial = new THREE.MeshBasicMaterial({ color: pos.color });
+                const light = new THREE.Mesh(lightGeometry, lightMaterial);
+                light.position.set(pos.x, 0, pos.z);
+                light.blinkState = true;
+                lights.push(light);
+                drone.add(light);
+            });
+
+            return drone;
+        }
+
+        function init() {
+            // Previous scene setup remains the same until the buildings creation
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x222222);
+            
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+
+            const rectGeometry = new THREE.PlaneGeometry(1, 1);
+            const rectMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ff00,
+                transparent: true,
+                opacity: 0.15,
+                side: THREE.DoubleSide
+            });
+            groundRect = new THREE.Mesh(rectGeometry, rectMaterial);
+            groundRect.rotation.x = -Math.PI / 2;
+            groundRect.position.set(0, 0, 0);
+            scene.add(groundRect);
+
+            const gridHelper = new THREE.GridHelper(400, 40, 0x444444, 0x333333);
+            scene.add(gridHelper);
+
+            const axesHelper = new THREE.AxesHelper(5);
+            scene.add(axesHelper);
+
+            cityGroup = new THREE.Group();
+            
+            // Enhanced building creation with more details
+            for (let i = 0; i < 100; i++) {
+                const buildingHeight = Math.random() * 30 + 5;
+                const buildingWidth = Math.random() * 10 + 5;
+                const buildingDepth = Math.random() * 10 + 5;
+                
+                // Main building structure
+                const buildingGeometry = new THREE.BoxGeometry(buildingWidth, buildingHeight, buildingDepth);
+                const buildingMaterial = new THREE.MeshPhongMaterial({
+                    color: new THREE.Color().setHSL(Math.random() * 0.1 + 0.05, 0.3, 0.5),
+                    transparent: true,
+                    opacity: 0.85,
+                    specular: 0x404040,
+                    shininess: 30
+                });
+                const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+
+                // Add windows
+                const windowGeometry = new THREE.BoxGeometry(0.8, 1.2, 0.1);
+                const windowMaterial = new THREE.MeshPhongMaterial({
+                    color: 0xffffcc,
+                    emissive: 0x444444,
+                    transparent: true,
+                    opacity: 0.9
+                });
+
+                const floors = Math.floor(buildingHeight / 3);
+                const windowsPerSide = Math.floor(buildingWidth / 2);
+
+                for (let floor = 0; floor < floors; floor++) {
+                    for (let w = 0; w < windowsPerSide; w++) {
+                        const window1 = new THREE.Mesh(windowGeometry, windowMaterial);
+                        window1.position.set(
+                            (w - windowsPerSide/2 + 0.5) * 2,
+                            floor * 3 - buildingHeight/2 + 1.5,
+                            buildingDepth/2 + 0.1
+                        );
+                        building.add(window1);
+
+                        const window2 = window1.clone();
+                        window2.position.z = -buildingDepth/2 - 0.1;
+                        building.add(window2);
+                    }
+                }
+
+                // Add roof details
+                const roofGeometry = new THREE.BoxGeometry(buildingWidth + 0.5, 0.5, buildingDepth + 0.5);
+                const roofMaterial = new THREE.MeshPhongMaterial({
+                    color: 0x505050,
+                    shininess: 50
+                });
+                const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+                roof.position.y = buildingHeight/2 + 0.25;
+                building.add(roof);
+
+                building.position.x = Math.random() * 200 - 100;
+                building.position.y = buildingHeight / 2;
+                building.position.z = Math.random() * 200 - 100;
+                building.rotation.y = Math.random() * Math.PI * 2;
+                
+                cityGroup.add(building);
+            }
+
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+            
+            scene.add(cityGroup);
+
+            droneCam = createQuadcopter();
+            droneCam.position.set(0, 20, 0);
+            scene.add(droneCam);
+
+            const linesMaterial = new THREE.LineDashedMaterial({
+                color: 0xffff00,
+                dashSize: 2,
+                gapSize: 2,
+            });
+            const linesGeometry = new THREE.BufferGeometry();
+            pyramidLines = new THREE.LineSegments(linesGeometry, linesMaterial);
+            scene.add(pyramidLines);
+
+            const centerLineMaterial = new THREE.LineDashedMaterial({
+                color: 0xff0000,
+                dashSize: 1.0,
+                gapSize: 1.0,
+            });
+            const centerLineGeometry = new THREE.BufferGeometry();
+            centerLine = new THREE.Line(centerLineGeometry, centerLineMaterial);
+            scene.add(centerLine);
+
+            renderer.domElement.addEventListener('mousedown', onMouseDown);
+            renderer.domElement.addEventListener('mousemove', onMouseMove);
+            renderer.domElement.addEventListener('mouseup', onMouseUp);
+            renderer.domElement.addEventListener('wheel', onMouseWheel);
+
+            window.addEventListener('resize', onWindowResize, false);
+
+            document.getElementById('aovSlider').addEventListener('input', updateVisualization);
+            document.getElementById('altitudeSlider').addEventListener('input', (e) => {
+                droneCam.position.y = parseFloat(e.target.value);
+                updateVisualization();
+            });
+            document.getElementById('aspectRatio').addEventListener('change', updateVisualization);
+
+            updateCameraPosition();
+            updateVisualization();
+        }
+
+        // Rest of the functions remain the same
+        function onMouseDown(event) {
+            isDragging = true;
+            previousMouseX = event.clientX;
+            previousMouseY = event.clientY;
+        }
+
+        function onMouseMove(event) {
+            if (!isDragging) return;
+
+            const deltaX = event.clientX - previousMouseX;
+            const deltaY = event.clientY - previousMouseY;
+
+            cameraAngle += deltaX * 0.01;
+            cameraHeight = Math.max(0.3, Math.min(2.0, cameraHeight + deltaY * 0.002));
+
+            previousMouseX = event.clientX;
+            previousMouseY = event.clientY;
+
+            updateCameraPosition();
+        }
+
+        function onMouseUp() {
+            isDragging = false;
+        }
+
+        function onMouseWheel(event) {
+            cameraDistance = Math.max(50, Math.min(2000, cameraDistance + event.deltaY * 0.5));
+            updateCameraPosition();
+        }
+
+        let blinkCounter = 0;
+        const BLINK_INTERVAL = 30;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (droneCam.children) {
+                droneCam.children.forEach(child => {
+                    if (child.clockwise !== undefined) {
+                        child.rotation.y += child.clockwise ? 0.3 : -0.3;
+                    }
+                });
+            }
+
+            blinkCounter++;
+            if (blinkCounter >= BLINK_INTERVAL) {
+                lights.forEach(light => {
+                    light.visible = !light.visible;
+                });
+                blinkCounter = 0;
+            }
+            
+            renderer.render(scene, camera);
+        }
+
+        function updateCameraPosition() {
+            const altitude = droneCam.position.y;
+            camera.position.x = cameraDistance * Math.cos(cameraAngle);
+            camera.position.z = cameraDistance * Math.sin(cameraAngle);
+            camera.position.y = cameraDistance * cameraHeight;
+            camera.lookAt(0, altitude/2, 0);
+        }
+
+        function updatePyramid() {
+            const altitude = droneCam.position.y;
+            const aov = parseFloat(document.getElementById('aovSlider').value);
+            const aspect = parseFloat(document.getElementById('aspectRatio').value);
+            
+            const width = 2 * altitude * Math.tan((aov * Math.PI / 180) / 2);
+            const depth = width / aspect;
+            const halfWidth = width / 2;
+            const halfDepth = depth / 2;
+
+            const positions = new Float32Array([
+                -halfWidth, 0, halfDepth,
+                halfWidth, 0, halfDepth,
+                
+                halfWidth, 0, halfDepth,
+                halfWidth, 0, -halfDepth,
+                
+                halfWidth, 0, -halfDepth,
+                -halfWidth, 0, -halfDepth,
+                
+                -halfWidth, 0, -halfDepth,
+                -halfWidth, 0, halfDepth,
+                
+                0, altitude, 0,
+                -halfWidth, 0, halfDepth,
+                
+                0, altitude, 0,
+                halfWidth, 0, halfDepth,
+                
+                0, altitude, 0,
+                halfWidth, 0, -halfDepth,
+                
+                0, altitude, 0,
+                -halfWidth, 0, -halfDepth,
+            ]);
+
+            pyramidLines.geometry.setAttribute('position', 
+                new THREE.BufferAttribute(positions, 3));
+            pyramidLines.computeLineDistances();
+
+            const centerLinePositions = new Float32Array([
+                0, 0, 0,
+                0, altitude, 0
+            ]);
+            centerLine.geometry.setAttribute('position',
+                new THREE.BufferAttribute(centerLinePositions, 3));
+            centerLine.computeLineDistances();
+
+            return { width, depth };
+        }
+
+        function updateVisualization() {
+            const altitude = droneCam.position.y;
+            const aov = parseFloat(document.getElementById('aovSlider').value);
+            const aspectSelect = document.getElementById('aspectRatio');
+            const aspectRatio = aspectSelect.value;
+            const aspectText = aspectSelect.options[aspectSelect.selectedIndex].text;
+            
+            const { width, depth } = updatePyramid();
+            
+            groundRect.scale.set(width, depth, 1);
+            
+            document.getElementById('altitude').textContent = altitude.toFixed(1);
+            document.getElementById('width').textContent = width.toFixed(1);
+            document.getElementById('depth').textContent = depth.toFixed(1);
+            document.getElementById('aov').textContent = aov.toFixed(1);
+            document.getElementById('aspect').textContent = aspectText;
+            
+            updateCameraPosition();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+</html>
