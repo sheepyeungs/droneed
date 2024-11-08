@@ -32,6 +32,7 @@
             padding: 15px;
             font-family: Arial, sans-serif;
             border-radius: 5px;
+            width: 250px; /* Increased width to accommodate new buttons */
         }
         .control-group {
             margin-bottom: 15px;
@@ -48,20 +49,29 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            font-size: 14px;
         }
         button:hover {
             background: #555;
         }
+        .aspect-button.active {
+            background: #007BFF; /* Highlight active aspect ratio */
+        }
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+        .action-buttons button {
+            flex: 1 1 30%;
+            margin: 5px 2px;
+            padding: 8px 10px;
+            font-size: 12px;
+        }
         input[type="range"] {
-            width: 200px;
+            width: 100%;
         }
-        select {
-            padding: 5px;
-            background: #444;
-            color: white;
-            border: none;
-            border-radius: 4px;
-        }
+        /* Remove default select styling if any (no longer used) */
     </style>
 </head>
 <body>
@@ -80,16 +90,29 @@
         </div>
         <div class="control-group">
             <label>Altitude (0-300m)</label>
-            <!-- Change 3: Allow altitude starting from 0 and set default value to 0 -->
+            <!-- Allow altitude starting from 0 and set default value to 0 -->
             <input type="range" id="altitudeSlider" min="0" max="300" value="0" step="1">
         </div>
         <div class="control-group">
             <label>Aspect Ratio</label>
-            <select id="aspectRatio">
-                <option value="1.333">4:3</option>
-                <option value="1.778">16:9</option>
-                <option value="1.5">3:2</option>
-            </select>
+            <!-- Change: Replace select with buttons -->
+            <div class="aspect-button-group">
+                <button class="aspect-button active" data-ratio="1.333">4:3</button>
+                <button class="aspect-button" data-ratio="1.778">16:9</button>
+                <button class="aspect-button" data-ratio="1.5">3:2</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <label>Actions</label>
+            <!-- Change: Add Zoom, Rotate, View buttons in a row -->
+            <div class="action-buttons">
+                <button id="zoomInBtn">Zoom In</button>
+                <button id="zoomOutBtn">Zoom Out</button>
+                <button id="rotateLeftBtn">Rotate Left</button>
+                <button id="rotateRightBtn">Rotate Right</button>
+                <button id="viewUpBtn">View Up</button>
+                <button id="viewDownBtn">View Down</button>
+            </div>
         </div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -106,6 +129,9 @@
 
         // Define minimum FOV size to ensure visibility at ground level
         const MIN_FOV_SIZE = 10; // in meters
+
+        // Aspect Ratio State
+        let currentAspectRatio = 1.333; // Default 4:3
 
         function createQuadcopter() {
             const drone = new THREE.Group();
@@ -422,7 +448,6 @@
             scene.add(directionalLight);
 
             // Create drone
-            // Change 3: Set initial altitude to 0
             droneCam = createQuadcopter();
             droneCam.position.set(0, 0, 0);
             scene.add(droneCam);
@@ -468,12 +493,49 @@
 
             window.addEventListener('resize', onWindowResize, false);
 
+            // Attach updateVisualization to sliders
             document.getElementById('aovSlider').addEventListener('input', updateVisualization);
             document.getElementById('altitudeSlider').addEventListener('input', (e) => {
                 droneCam.position.y = parseFloat(e.target.value);
                 updateVisualization();
             });
-            document.getElementById('aspectRatio').addEventListener('change', updateVisualization);
+
+            // Attach event listeners to aspect ratio buttons
+            const aspectButtons = document.querySelectorAll('.aspect-button');
+            aspectButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    aspectButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    currentAspectRatio = parseFloat(button.getAttribute('data-ratio'));
+                    updateVisualization();
+                });
+            });
+
+            // Attach event listeners to action buttons
+            document.getElementById('zoomInBtn').addEventListener('click', () => {
+                cameraDistance = Math.max(50, cameraDistance - 10);
+                updateCameraPosition();
+            });
+            document.getElementById('zoomOutBtn').addEventListener('click', () => {
+                cameraDistance = Math.min(2000, cameraDistance + 10);
+                updateCameraPosition();
+            });
+            document.getElementById('rotateLeftBtn').addEventListener('click', () => {
+                cameraAngle -= Math.PI / 18; // Rotate by 10 degrees
+                updateCameraPosition();
+            });
+            document.getElementById('rotateRightBtn').addEventListener('click', () => {
+                cameraAngle += Math.PI / 18; // Rotate by 10 degrees
+                updateCameraPosition();
+            });
+            document.getElementById('viewUpBtn').addEventListener('click', () => {
+                cameraHeight = Math.min(5.0, cameraHeight + 0.1);
+                updateCameraPosition();
+            });
+            document.getElementById('viewDownBtn').addEventListener('click', () => {
+                cameraHeight = Math.max(0.3, cameraHeight - 0.1);
+                updateCameraPosition();
+            });
 
             updateCameraPosition();
             updateVisualization();
@@ -610,18 +672,25 @@
         function updatePyramid() {
             const altitude = droneCam.position.y;
             const aov = parseFloat(document.getElementById('aovSlider').value);
-            const aspect = parseFloat(document.getElementById('aspectRatio').value);
+            const aspect = currentAspectRatio;
             
-            // Calculate width and depth based on altitude and angle of view
-            let width = 2 * altitude * Math.tan((aov * Math.PI / 180) / 2);
-            let depth = width / aspect;
+            let width, depth;
 
-            // Enforce minimum FOV size
-            if (width < MIN_FOV_SIZE) {
-                width = MIN_FOV_SIZE;
-            }
-            if (depth < MIN_FOV_SIZE) {
-                depth = MIN_FOV_SIZE;
+            if (altitude >= 0 && altitude <= 4) {
+                width = 10;
+                depth = 10;
+            } else {
+                // Calculate width and depth based on altitude and angle of view
+                width = 2 * altitude * Math.tan((aov * Math.PI / 180) / 2);
+                depth = width / aspect;
+
+                // Enforce minimum FOV size
+                if (width < MIN_FOV_SIZE) {
+                    width = MIN_FOV_SIZE;
+                }
+                if (depth < MIN_FOV_SIZE) {
+                    depth = MIN_FOV_SIZE;
+                }
             }
 
             const halfWidth = width / 2;
@@ -673,9 +742,7 @@
         function updateVisualization() {
             const altitude = droneCam.position.y;
             const aov = parseFloat(document.getElementById('aovSlider').value);
-            const aspectSelect = document.getElementById('aspectRatio');
-            const aspectRatio = aspectSelect.value;
-            const aspectText = aspectSelect.options[aspectSelect.selectedIndex].text;
+            const aspectText = document.querySelector('.aspect-button.active').textContent;
             
             const { width, depth } = updatePyramid();
             
