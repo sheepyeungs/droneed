@@ -102,6 +102,7 @@
         let isDragging = false;
         let previousMouseX, previousMouseY;
         let lights = [];
+        let watermark;
 
         // Define minimum FOV size to ensure visibility at ground level
         const MIN_FOV_SIZE = 10; // in meters
@@ -192,6 +193,56 @@
 
             road.add(roadMesh);
             return road;
+        }
+
+        function addWatermark() {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            const text = "STEM Education";
+            const fontSize = 64;
+            context.font = `${fontSize}px Arial`;
+            context.fillStyle = "rgba(255, 255, 255, 0.5)"; // White color with 50% opacity
+            context.textAlign = "center";
+            context.textBaseline = "middle";
+            context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+            // Adjust canvas size based on text
+            const metrics = context.measureText(text);
+            const width = metrics.width;
+            const height = fontSize; // Approximate height
+            canvas.width = width;
+            canvas.height = height;
+            context.font = `${fontSize}px Arial`;
+            context.fillStyle = "rgba(255, 255, 255, 0.5)";
+            context.textAlign = "center";
+            context.textBaseline = "middle";
+            context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+
+            const spriteMaterial = new THREE.SpriteMaterial({ 
+                map: texture,
+                transparent: true
+            });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(width / 20, height / 20, 1); // Adjust scale as needed
+
+            // Position the watermark at the front-left corner
+            const groundSize = 800;
+            const offset = groundSize / 2 - 50; // 50 meters from the edge
+            sprite.position.set(-offset, 0.5, -offset); // Slightly above ground
+
+            // Optional: Rotate the watermark to align with the ground
+            sprite.rotation.x = -Math.PI / 2; // Face upwards
+
+            // Ensure watermark is rendered on top
+            sprite.renderOrder = 3;
+            sprite.material.depthTest = false;
+
+            scene.add(sprite);
+
+            watermark = sprite;
         }
 
         function init() {
@@ -399,11 +450,22 @@
             centerLine.renderOrder = 2; // Render after roads and buildings
             scene.add(centerLine);
 
+            // Add Watermark
+            addWatermark();
+
             // Event listeners
-            renderer.domElement.addEventListener('mousedown', onMouseDown);
-            renderer.domElement.addEventListener('mousemove', onMouseMove);
-            renderer.domElement.addEventListener('mouseup', onMouseUp);
-            renderer.domElement.addEventListener('wheel', onMouseWheel);
+            renderer.domElement.addEventListener('mousedown', onMouseDown, false);
+            renderer.domElement.addEventListener('mousemove', onMouseMove, false);
+            renderer.domElement.addEventListener('mouseup', onMouseUp, false);
+            renderer.domElement.addEventListener('mouseleave', onMouseUp, false); // Handle mouse leaving the canvas
+            renderer.domElement.addEventListener('wheel', onMouseWheel, false);
+
+            // Add touch event listeners for iPad and other touch devices
+            renderer.domElement.addEventListener('touchstart', onTouchStart, false);
+            renderer.domElement.addEventListener('touchmove', onTouchMove, false);
+            renderer.domElement.addEventListener('touchend', onTouchEnd, false);
+            renderer.domElement.addEventListener('touchcancel', onTouchEnd, false);
+
             window.addEventListener('resize', onWindowResize, false);
 
             document.getElementById('aovSlider').addEventListener('input', updateVisualization);
@@ -448,13 +510,14 @@
             return canvas;
         }
 
-        // Rest of the functions remain exactly the same as in the original code
+        // Function to handle mouse down event
         function onMouseDown(event) {
             isDragging = true;
             previousMouseX = event.clientX;
             previousMouseY = event.clientY;
         }
 
+        // Function to handle mouse move event
         function onMouseMove(event) {
             if (!isDragging) return;
 
@@ -470,13 +533,45 @@
             updateCameraPosition();
         }
 
+        // Function to handle mouse up and mouse leave events
         function onMouseUp() {
             isDragging = false;
         }
 
+        // Function to handle mouse wheel event
         function onMouseWheel(event) {
             cameraDistance = Math.max(50, Math.min(2000, cameraDistance + event.deltaY * 0.5));
             updateCameraPosition();
+        }
+
+        // Touch event handlers for touch-based dragging
+        function onTouchStart(event) {
+            if (event.touches.length !== 1) return; // Only handle single touch
+            event.preventDefault(); // Prevent default touch actions like scrolling
+            const touch = event.touches[0];
+            isDragging = true;
+            previousMouseX = touch.clientX;
+            previousMouseY = touch.clientY;
+        }
+
+        function onTouchMove(event) {
+            if (!isDragging || event.touches.length !== 1) return;
+            event.preventDefault(); // Prevent default touch actions like scrolling
+            const touch = event.touches[0];
+            const deltaX = touch.clientX - previousMouseX;
+            const deltaY = touch.clientY - previousMouseY;
+
+            cameraAngle += deltaX * 0.005; // Adjusted sensitivity
+            cameraHeight = Math.max(0.3, Math.min(2.0, cameraHeight + deltaY * 0.002));
+
+            previousMouseX = touch.clientX;
+            previousMouseY = touch.clientY;
+
+            updateCameraPosition();
+        }
+
+        function onTouchEnd(event) {
+            isDragging = false;
         }
 
         let blinkCounter = 0;
