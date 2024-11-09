@@ -32,6 +32,7 @@
             padding: 15px;
             font-family: Arial, sans-serif;
             border-radius: 5px;
+            width: 260px; /* Adjusted width to accommodate new buttons */
         }
         .control-group {
             margin-bottom: 15px;
@@ -42,25 +43,36 @@
         }
         button {
             margin: 5px;
-            padding: 8px 15px;
+            padding: 8px 12px;
             background: #444;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            font-size: 14px;
         }
         button:hover {
             background: #555;
         }
-        input[type="range"] {
-            width: 200px;
+        .aspect-button.active {
+            background: #007BFF; /* Highlight active aspect ratio */
         }
-        select {
-            padding: 5px;
-            background: #444;
-            color: white;
-            border: none;
-            border-radius: 4px;
+        .aspect-button {
+            margin: 5px 2px;
+        }
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+        .action-buttons button {
+            flex: 1 1 45%; /* Adjusted to fit two buttons per row */
+            margin: 5px 2px;
+            padding: 8px 10px;
+            font-size: 12px;
+        }
+        input[type="range"] {
+            width: 100%;
         }
     </style>
 </head>
@@ -80,23 +92,35 @@
         </div>
         <div class="control-group">
             <label>Altitude (0-300m)</label>
-            <!-- Change 3: Allow altitude starting from 0 and set default value to 0 -->
             <input type="range" id="altitudeSlider" min="0" max="300" value="0" step="1">
         </div>
         <div class="control-group">
             <label>Aspect Ratio</label>
-            <select id="aspectRatio">
-                <option value="1.333">4:3</option>
-                <option value="1.778">16:9</option>
-                <option value="1.5">3:2</option>
-            </select>
+            <!-- Replaced select with three buttons -->
+            <div class="aspect-button-group">
+                <button class="aspect-button active" data-ratio="1.333">4:3</button>
+                <button class="aspect-button" data-ratio="1.778">16:9</button>
+                <button class="aspect-button" data-ratio="1.5">3:2</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <label>Camera Controls</label>
+            <!-- Added action buttons in a single row -->
+            <div class="action-buttons">
+                <button id="zoomInBtn">Zoom In</button>
+                <button id="zoomOutBtn">Zoom Out</button>
+                <button id="rotateLeftBtn">Rotate Left</button>
+                <button id="rotateRightBtn">Rotate Right</button>
+                <button id="viewUpBtn">View Up</button>
+                <button id="viewDownBtn">View Down</button>
+            </div>
         </div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        let scene, camera, renderer, controls;
+        let scene, camera, renderer;
         let droneCam, groundRect, pyramidLines, centerLine, cityGroup, fovOutline;
-        let cameraDistance = 150; // Increased default distance for better visualization
+        let cameraDistance = 150; // Default distance
         let cameraAngle = Math.PI / 4;
         let cameraHeight = 0.7;
         let isDragging = false;
@@ -106,6 +130,9 @@
 
         // Define minimum FOV size to ensure visibility at ground level
         const MIN_FOV_SIZE = 0; // in meters
+
+        // Aspect Ratio State
+        let currentAspectRatio = 1.333; // Default 4:3
 
         function createQuadcopter() {
             const drone = new THREE.Group();
@@ -139,7 +166,6 @@
                 const lightMaterial = new THREE.MeshBasicMaterial({ color: pos.color });
                 const light = new THREE.Mesh(lightGeometry, lightMaterial);
                 light.position.set(pos.x, 0, pos.z);
-                light.blinkState = true;
                 lights.push(light);
                 drone.add(light);
             });
@@ -267,7 +293,7 @@
             ground.position.y = -0.1;
             scene.add(ground);
 
-            // Change 4: Add pale orange color to FOV visualization plane
+            // Add pale orange color to FOV visualization plane
             const rectGeometry = new THREE.PlaneGeometry(1, 1);
             const rectMaterial = new THREE.MeshBasicMaterial({
                 color: 0xffcc99, // Pale orange
@@ -310,7 +336,7 @@
             // Create city group
             cityGroup = new THREE.Group();
             
-            // Change 1: Fixed building positions arranged in a grid
+            // Fixed building positions arranged in a grid
             const buildingSpacing = 50;
             const numRows = 14; // Adjusted for approximately 196 buildings
             const startPos = - (buildingSpacing * (numRows - 1)) / 2;
@@ -331,7 +357,7 @@
                     
                     const buildingGeometry = new THREE.BoxGeometry(buildingWidth, buildingHeight, buildingDepth);
 
-                    // Change 2: Enhanced building materials with emissive windows
+                    // Enhanced building materials with emissive windows
                     const windowTexture = new THREE.CanvasTexture(createWindowCanvas(256, 256));
                     const buildingMaterial = new THREE.MeshPhongMaterial({
                         map: windowTexture,
@@ -422,7 +448,6 @@
             scene.add(directionalLight);
 
             // Create drone
-            // Change 3: Set initial altitude to 0
             droneCam = createQuadcopter();
             droneCam.position.set(0, 0, 0);
             scene.add(droneCam);
@@ -453,14 +478,14 @@
             // Add Watermark
             addWatermark();
 
-            // Event listeners
+            // Event listeners for user interactions
             renderer.domElement.addEventListener('mousedown', onMouseDown, false);
             renderer.domElement.addEventListener('mousemove', onMouseMove, false);
             renderer.domElement.addEventListener('mouseup', onMouseUp, false);
             renderer.domElement.addEventListener('mouseleave', onMouseUp, false); // Handle mouse leaving the canvas
             renderer.domElement.addEventListener('wheel', onMouseWheel, false);
 
-            // Add touch event listeners for iPad and other touch devices
+            // Add touch event listeners for touch-based dragging
             renderer.domElement.addEventListener('touchstart', onTouchStart, false);
             renderer.domElement.addEventListener('touchmove', onTouchMove, false);
             renderer.domElement.addEventListener('touchend', onTouchEnd, false);
@@ -468,12 +493,49 @@
 
             window.addEventListener('resize', onWindowResize, false);
 
+            // Attach updateVisualization to sliders
             document.getElementById('aovSlider').addEventListener('input', updateVisualization);
             document.getElementById('altitudeSlider').addEventListener('input', (e) => {
                 droneCam.position.y = parseFloat(e.target.value);
                 updateVisualization();
             });
-            document.getElementById('aspectRatio').addEventListener('change', updateVisualization);
+
+            // Attach event listeners to aspect ratio buttons
+            const aspectButtons = document.querySelectorAll('.aspect-button');
+            aspectButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    aspectButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    currentAspectRatio = parseFloat(button.getAttribute('data-ratio'));
+                    updateVisualization();
+                });
+            });
+
+            // Attach event listeners to action buttons
+            document.getElementById('zoomInBtn').addEventListener('click', () => {
+                cameraDistance = Math.max(50, cameraDistance - 10);
+                updateCameraPosition();
+            });
+            document.getElementById('zoomOutBtn').addEventListener('click', () => {
+                cameraDistance = Math.min(2000, cameraDistance + 10);
+                updateCameraPosition();
+            });
+            document.getElementById('rotateLeftBtn').addEventListener('click', () => {
+                cameraAngle -= Math.PI / 18; // Rotate by 10 degrees
+                updateCameraPosition();
+            });
+            document.getElementById('rotateRightBtn').addEventListener('click', () => {
+                cameraAngle += Math.PI / 18; // Rotate by 10 degrees
+                updateCameraPosition();
+            });
+            document.getElementById('viewUpBtn').addEventListener('click', () => {
+                cameraHeight = Math.min(5.0, cameraHeight + 0.1);
+                updateCameraPosition();
+            });
+            document.getElementById('viewDownBtn').addEventListener('click', () => {
+                cameraHeight = Math.max(0.3, cameraHeight - 0.1);
+                updateCameraPosition();
+            });
 
             updateCameraPosition();
             updateVisualization();
@@ -610,18 +672,25 @@
         function updatePyramid() {
             const altitude = droneCam.position.y;
             const aov = parseFloat(document.getElementById('aovSlider').value);
-            const aspect = parseFloat(document.getElementById('aspectRatio').value);
+            const aspect = currentAspectRatio;
             
-            // Calculate width and depth based on altitude and angle of view
-            let width = 2 * altitude * Math.tan((aov * Math.PI / 180) / 2);
-            let depth = width / aspect;
+            let width, depth;
 
-            // Enforce minimum FOV size
-            if (width < MIN_FOV_SIZE) {
-                width = MIN_FOV_SIZE;
-            }
-            if (depth < MIN_FOV_SIZE) {
-                depth = MIN_FOV_SIZE;
+            if (altitude >= 0 && altitude <= 0.1) {
+                width = 0;
+                depth = 0;
+            } else {
+                // Calculate width and depth based on altitude and angle of view
+                width = 2 * altitude * Math.tan((aov * Math.PI / 180) / 2);
+                depth = width / aspect;
+
+                // Enforce minimum FOV size
+                if (width < MIN_FOV_SIZE) {
+                    width = MIN_FOV_SIZE;
+                }
+                if (depth < MIN_FOV_SIZE) {
+                    depth = MIN_FOV_SIZE;
+                }
             }
 
             const halfWidth = width / 2;
@@ -673,9 +742,7 @@
         function updateVisualization() {
             const altitude = droneCam.position.y;
             const aov = parseFloat(document.getElementById('aovSlider').value);
-            const aspectSelect = document.getElementById('aspectRatio');
-            const aspectRatio = aspectSelect.value;
-            const aspectText = aspectSelect.options[aspectSelect.selectedIndex].text;
+            const aspectText = document.querySelector('.aspect-button.active').textContent;
             
             const { width, depth } = updatePyramid();
             
