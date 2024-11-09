@@ -32,7 +32,7 @@
             padding: 15px;
             font-family: Arial, sans-serif;
             border-radius: 5px;
-            width: 260px; /* Adjusted width to accommodate new buttons */
+            width: 280px; /* Increased width to accommodate new button */
         }
         .control-group {
             margin-bottom: 15px;
@@ -113,6 +113,7 @@
                 <button id="rotateRightBtn">Rotate Right</button>
                 <button id="viewUpBtn">View Up</button>
                 <button id="viewDownBtn">View Down</button>
+                <button id="centerBtn">Center</button> <!-- New Center Button -->
             </div>
         </div>
     </div>
@@ -536,6 +537,7 @@
                 cameraHeight = Math.max(0.3, cameraHeight - 0.1);
                 updateCameraPosition();
             });
+            document.getElementById('centerBtn').addEventListener('click', centerView); // Event listener for Center button
 
             updateCameraPosition();
             updateVisualization();
@@ -765,6 +767,31 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Function to center the view at 100m altitude without changing zoom scale
+        function centerView() {
+            const centerAltitude = 100;
+
+            // Update the altitude slider
+            const altitudeSlider = document.getElementById('altitudeSlider');
+            altitudeSlider.value = centerAltitude;
+            droneCam.position.y = centerAltitude;
+
+            // Update the altitude display
+            document.getElementById('altitude').textContent = centerAltitude.toFixed(1);
+
+            // Calculate new cameraHeight to position camera at 100m altitude
+            let newCameraHeight = centerAltitude / cameraDistance;
+            // Clamp cameraHeight between 0.3 and 5
+            newCameraHeight = Math.max(0.3, Math.min(5, newCameraHeight));
+            cameraHeight = newCameraHeight;
+
+            // Update camera position
+            updateCameraPosition();
+
+            // Update visualization
+            updateVisualization();
         }
 
         init();
